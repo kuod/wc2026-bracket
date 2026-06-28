@@ -58,7 +58,7 @@ function decidedCount() {
   return Object.keys(actualResults).length;
 }
 
-// ---- Predictions: auto-fetch from the Sheet; paste box as fallback ----------
+// ---- Predictions: auto-fetched from the Google Sheet ------------------------
 
 async function fetchPredictionsFromSheet(url) {
   const res = await fetch(url);
@@ -74,29 +74,6 @@ async function fetchPredictionsFromSheet(url) {
       MATCH_IDS.map(id => [id, row[id] || undefined]).filter(([, v]) => v)
     )
   }));
-}
-
-function loadPredictionsFromPastedJson(text) {
-  const out = [];
-  const tryParseOne = (obj) => {
-    if (obj && obj.schema === "wc2026-prediction-v1") {
-      out.push({
-        predictor: obj.predictor || "Unknown",
-        picks: obj.picks || {},
-        submittedAt: obj.submittedAt
-      });
-    }
-  };
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (e) {
-    throw new Error("Couldn't parse that as JSON. Paste one prediction object or a JSON array of them.");
-  }
-  if (Array.isArray(data)) data.forEach(tryParseOne);
-  else tryParseOne(data);
-  if (out.length === 0) throw new Error("No valid wc2026-prediction-v1 payloads found in that text.");
-  return out;
 }
 
 // ---- Scoring ----------------------------------------------------------------
@@ -297,7 +274,9 @@ function tally(matchId) {
   }
   return Object.entries(counts)
     .map(([team, count]) => ({ team, count, share: n ? count / n : 0 }))
-    .sort((a, b) => b.count - a.count);
+    // Break count ties by team name so the order is deterministic regardless of
+    // Sheet row order (otherwise equally-popular teams can swap places on reload).
+    .sort((a, b) => b.count - a.count || a.team.localeCompare(b.team));
 }
 
 function renderPoolStats() {
@@ -323,7 +302,9 @@ function renderPoolStats() {
     const key = [a, b].sort().join(" ‹vs› ");
     finalPairs[key] = (finalPairs[key] || 0) + 1;
   }
-  const topFinals = Object.entries(finalPairs).sort((x, y) => y[1] - x[1]).slice(0, 4);
+  const topFinals = Object.entries(finalPairs)
+    .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))   // count, then pair name
+    .slice(0, 4);
   const finalHtml = topFinals.length
     ? topFinals.map(([pair, count]) =>
         `<div class="stat-line"><strong>${escapeHtml(pair)}</strong><span class="muted">${count} of ${n}</span></div>`
@@ -489,7 +470,9 @@ async function initScorePage() {
 
   const refresh = () => { renderBracketCanvas(); renderLeaderboard(); renderPoolStats(); renderUpdatedStamp(); };
 
-  // Auto-load everyone's predictions from the Google Sheet.
+  // Everyone's predictions are auto-loaded from the Google Sheet — the only
+  // data path. If it fails, we surface the error and the bracket still renders
+  // live results; a later reload retries.
   if (typeof SCRIPT_URL === "string" && SCRIPT_URL) {
     renderStatus("Loading brackets…");
     try {
@@ -497,26 +480,9 @@ async function initScorePage() {
       renderStatus(`Loaded ${predictions.length} bracket(s).`, "ok");
       refresh();
     } catch (e) {
-      renderStatus(`Couldn't load brackets automatically (${e.message}). Paste JSON below instead.`, "err");
+      renderStatus(`Couldn't load brackets right now (${e.message}). Try reloading in a moment.`, "err");
     }
   } else {
-    renderStatus("No Sheet URL configured — paste bracket JSON below to score.", "err");
-  }
-
-  const pasteBtn = document.getElementById("load-paste-btn");
-  if (pasteBtn) {
-    pasteBtn.addEventListener("click", () => {
-      const text = document.getElementById("paste-json-input").value;
-      try {
-        const fromPaste = loadPredictionsFromPastedJson(text);
-        const byName = new Map(predictions.map(p => [p.predictor, p]));
-        fromPaste.forEach(p => byName.set(p.predictor, p));
-        predictions = Array.from(byName.values());
-        renderStatus(`Added ${fromPaste.length} bracket(s) from pasted JSON. Total: ${predictions.length}.`, "ok");
-        refresh();
-      } catch (e) {
-        renderStatus(e.message, "err");
-      }
-    });
+    renderStatus("No Sheet URL configured — set SCRIPT_URL in assets/config.js.", "err");
   }
 }

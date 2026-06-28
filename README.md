@@ -57,7 +57,7 @@ python3 tools/update_leaderboard.py   # stdlib only, no pip install
 
 ## Sharing it
 
-Send friends `https://kuod.github.io/wc2026-bracket/`. They fill out the bracket and hit **Submit** — done. If automatic loading ever hiccups, the **"Copy JSON Instead"** button lets someone send you their picks any other way, and the leaderboard's collapsible *"paste them manually"* box accepts pasted JSON.
+Send friends `https://kuod.github.io/wc2026-bracket/`. They fill out the bracket and hit **Submit** — done. If a submission ever hiccups, the **"Copy JSON Instead"** button lets someone send you their picks any other way.
 
 ## Scoring
 

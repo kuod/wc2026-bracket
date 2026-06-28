@@ -741,33 +741,6 @@ body.on-leaderboard { overflow: auto; }
 
 .muted { color: rgba(246,243,234,0.45); }
 
-/* Pinned to a corner as an overlay so it never adds height to the single-screen
-   page (it lives outside .page in the document). */
-.paste-fallback {
-  position: fixed;
-  left: clamp(8px, 1.5vw, 20px);
-  bottom: clamp(8px, 1.5vh, 18px);
-  z-index: 40;
-  max-width: min(460px, 92vw);
-  background: rgba(7,39,29,0.97);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0 16px;
-  box-shadow: var(--shadow);
-}
-.paste-fallback[open] { max-height: 70vh; overflow: auto; }
-.paste-fallback summary {
-  cursor: pointer;
-  padding: 14px 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: rgba(246,243,234,0.6);
-}
-.paste-fallback summary:hover { color: var(--gold-bright); }
-.paste-fallback[open] { padding-bottom: 18px; }
-.paste-fallback p { font-size: 13.5px; color: rgba(246,243,234,0.7); }
-
 footer.site-footer {
   margin-top: 70px;
   padding-top: 20px;
