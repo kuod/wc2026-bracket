@@ -51,6 +51,28 @@ function loadResults() {
     }
     out[matchId] = winner;
   }
+
+  // Legality pass (round order): a winner must be one of the two teams the
+  // bracket can actually deliver to that match — R32's fixed pair, or the two
+  // feeder winners for later rounds (read from `out`, so feeders set by other
+  // overrides count). Drops e.g. `"R32-1": "Brazil"`, which would otherwise be
+  // scored as winning South Africa vs Canada. Walking in round order means a
+  // dropped feeder leaves the next match with an undecided slot; validation is
+  // skipped while a feeder is still undecided, so a deliberate look-ahead
+  // override isn't falsely rejected.
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      const winner = out[m.id];
+      if (!winner) continue;
+      const legal = round.key === "R32"
+        ? [m.teamA, m.teamB]
+        : [out[m.from[0]], out[m.from[1]]];
+      if (legal[0] && legal[1] && winner !== legal[0] && winner !== legal[1]) {
+        console.warn(`Ignoring illegal result for ${m.id}: ${winner} can't appear in this match.`);
+        delete out[m.id];
+      }
+    }
+  }
   actualResults = out;
 }
 
@@ -67,13 +89,28 @@ async function fetchPredictionsFromSheet(url) {
   if (data.error) throw new Error(data.error);
 
   const MATCH_IDS = ROUNDS.flatMap(r => r.matches.map(m => m.id));
-  return (data.predictions || []).map(row => ({
+  const rows = (data.predictions || []).map(row => ({
     predictor: row.predictor || "Unknown",
     submittedAt: row.submittedAt || "",
+    timestamp: row.timestamp || "",
     picks: Object.fromEntries(
       MATCH_IDS.map(id => [id, row[id] || undefined]).filter(([, v]) => v)
     )
   }));
+
+  // The backend upserts one row per predictor, so duplicates shouldn't occur in
+  // normal use — but a manually-edited Sheet could carry two rows for one name,
+  // which would double-count that person in standings AND pool stats. Collapse
+  // to one entry per name, keeping the most recently written row (timestamp is
+  // the server-side write time; submittedAt is the client clock as a fallback).
+  const byName = new Map();
+  for (const r of rows) {
+    const prev = byName.get(r.predictor);
+    if (!prev || (r.timestamp || r.submittedAt) > (prev.timestamp || prev.submittedAt)) {
+      byName.set(r.predictor, r);
+    }
+  }
+  return Array.from(byName.values());
 }
 
 // ---- Scoring ----------------------------------------------------------------
@@ -145,18 +182,38 @@ function actualMatchTeams(roundKey, match) {
   return [actualResults[fromA] || null, actualResults[fromB] || null];
 }
 
-// One match cell. In "reality" mode it shows the actual winner; in "person"
-// mode it shows that predictor's pick, styled correct / wrong / pending.
+// The same resolver, but for ONE person's predicted bracket: a later-round
+// match's two teams are the winners THEY picked in its feeder matches. This is
+// what lets the person view keep the full two-team card shape of the reality
+// view (rather than collapsing to a single pick row).
+function predMatchTeams(pred, roundKey, match) {
+  if (roundKey === "R32") return [match.teamA, match.teamB];
+  const [fromA, fromB] = match.from;
+  return [pred.picks[fromA] || null, pred.picks[fromB] || null];
+}
+
+// One match cell, used for BOTH views so they read identically:
+//  - Reality (no pred): both teams of the real matchup; actual winner gold.
+//  - Person (pred set): both teams of THEIR predicted matchup, with the team
+//    they picked to advance marked correct / wrong / pending vs reality and, on
+//    a correct pick, badged with the points it earned (+1 … +8).
 function canvasCard(roundKey, match, side, pred) {
   function row(team, opts) {
+    opts = opts || {};
     if (!team) return `<div class="team-row empty"><span class="team-name">TBD</span></div>`;
-    const cls = opts && opts.state ? ` pick-${opts.state}` : (opts && opts.win ? " selected" : "");
-    const mark = opts && opts.state === "correct" ? "✓" : opts && opts.state === "wrong" ? "✗" : "";
-    const actual = opts && opts.actual
+    // pick-state styling (person view, decided) wins; otherwise the gold
+    // "selected" highlight marks either the reality winner (opts.win) or a
+    // person's still-pending pick (opts.chosen) — same look as the predictor.
+    const cls = opts.state ? ` pick-${opts.state}` : (opts.win || opts.chosen ? " selected" : "");
+    const mark = opts.state === "correct" ? "✓" : opts.state === "wrong" ? "✗" : "";
+    // Points earned on a correct pick, shown on the right alongside the ✓.
+    const pts = opts.points
+      ? `<span class="pick-points" title="Points earned">+${opts.points}</span>` : "";
+    const actual = opts.actual
       ? `<span class="pick-actual" title="Actual winner">→ ${escapeHtml(shortCode(opts.actual))}</span>` : "";
     return `<div class="team-row${cls}" title="${escapeAttr(team)}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
-        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${actual}
+        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${actual}
       </div>`;
   }
 
@@ -176,14 +233,33 @@ function canvasCard(roundKey, match, side, pred) {
       </div></div>`;
   }
 
-  // Person view: show this predictor's pick for the match, marked vs reality.
+  // Person view: same two-team card as reality, populated from THEIR picks. The
+  // team they chose to advance carries the correct/wrong/pending styling, the ✓,
+  // the points badge, and (when wrong) the actual winner; the other team — the
+  // one they predicted would lose here — is shown plain.
   const guess = pred.picks[match.id];
   const state = pickState(match.id, guess);
+  const points = state === "correct" ? ROUND_POINTS[roundKey] : 0;
   const showActual = state === "wrong" && actual ? actual : null;
-  // Show only the predictor's pick (one row) so the canvas reads as their path.
+  const [teamA, teamB] = predMatchTeams(pred, roundKey, match);
+
+  const personRow = team => {
+    if (!team) return row(null);
+    if (team === guess) {
+      // "chosen" marks their pick even when pending, so it reads as their pick
+      // (not dimmed like the old subtractive view) before a result is in.
+      const opts = state === "pending"
+        ? { chosen: true }
+        : { state, points, actual: showActual };
+      return row(team, opts);
+    }
+    return row(team, {});
+  };
+
   return `<div class="match-card">
     <div class="team-stack">
-      ${row(guess, { state, actual: showActual })}
+      ${personRow(teamA)}
+      ${personRow(teamB)}
     </div></div>`;
 }
 
@@ -235,7 +311,7 @@ function renderLeaderboard() {
     const active = p.predictor === selectedPredictor ? " is-active" : "";
     return `
       <li class="lb-entry${active}" data-name="${escapeAttr(p.predictor)}">
-        <button class="lb-row">
+        <button type="button" class="lb-row" aria-pressed="${active ? "true" : "false"}" aria-label="${escapeAttr(`Show ${p.predictor}'s bracket`)}">
           <span class="lb-rank ${medal}">${p.rank}</span>
           <span class="lb-name">${escapeHtml(p.predictor)}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>

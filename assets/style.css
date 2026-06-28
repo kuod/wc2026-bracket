@@ -412,6 +412,9 @@ img.flag {
 .team-row.pick-correct .pick-mark { color: var(--gold-bright); }
 .team-row.pick-wrong .pick-mark { color: var(--red-card); }
 .team-row .pick-actual { flex: none; font-size: clamp(8px, 0.7vw, 11px); color: rgba(246,243,234,0.55); }
+/* Points earned on a correct pick (+1 … +8), shown beside the ✓ so the person
+   view reads like a scorecard. */
+.team-row .pick-points { flex: none; font-family: var(--font-mono); font-size: clamp(8px, 0.7vw, 11px); color: var(--gold-bright); font-weight: 700; }
 
 /* ---------- Form fields ---------- */
 
@@ -806,7 +809,9 @@ footer.site-footer {
    and let cards grow rather than stranding whitespace. */
 @media (min-width: 1500px) {
   .bracket-region { padding-left: clamp(24px, 5vw, 90px); padding-right: clamp(24px, 5vw, 90px); }
-  .sym-labels { padding-left: clamp(24px, 5vw, 90px); padding-right: clamp(24px, 5vw, 90px); }
+  /* .sym-labels already sits inside .bracket-region's padding; adding the same
+     inset again would push the labels inward off their columns. The labels and
+     the bracket grid share the region's padding, so they stay column-aligned. */
   .team-row { font-size: clamp(13px, 0.95vw, 16px); }
 }
 
