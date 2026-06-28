@@ -25,13 +25,13 @@
 
   <div class="panel gold-edge">
     <h3>Step 1 — Load everyone's predictions</h3>
-    <p>Predictions get submitted as GitHub Issues labeled <code>prediction</code>. Pull them straight from the repo's public API (no login needed to read public issues):</p>
+    <p>Predictions are stored in Google Sheets via the Apps Script backend. The URL is pre-filled from <code>assets/config.js</code>:</p>
     <div class="field-group" style="margin-bottom:12px;">
-      <label for="repo-input">GitHub repo (username/repo)</label>
-      <input type="text" id="repo-input" placeholder="e.g. kuod/wc2026-bracket">
+      <label for="sheet-url-input">Apps Script URL</label>
+      <input type="text" id="sheet-url-input" placeholder="https://script.google.com/macros/s/…/exec">
     </div>
-    <button class="btn btn-primary" id="load-github-btn">Load Predictions from GitHub Issues</button>
-    <p style="margin-top:18px;">Or, if you'd rather not rely on the API, paste the JSON from one or more issues directly (one object, or a JSON array of several):</p>
+    <button class="btn btn-primary" id="load-sheet-btn">Load Predictions</button>
+    <p style="margin-top:18px;">Or paste the JSON from one or more submitted brackets directly:</p>
     <textarea class="json-box" id="paste-json-input" placeholder='{"schema":"wc2026-prediction-v1", ...}'></textarea>
     <button class="btn btn-ghost" id="load-paste-btn" style="margin-top:10px;">Load From Pasted JSON</button>
     <p id="load-status" style="margin-top:12px; font-family:var(--font-mono); font-size:12.5px; color:var(--gold-bright);"></p>
@@ -57,6 +57,7 @@
 
 </div>
 
+<script src="assets/config.js"></script>
 <script src="assets/bracket-data.js"></script>
 <script src="assets/score-app.js"></script>
 <script>initScorePage();</script>

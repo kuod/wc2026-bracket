@@ -32,7 +32,7 @@
   <div class="panel gold-edge">
     <h3>Before you start</h3>
     <p>Enter your name, then call a winner in every match. As you pick winners in the Round of 32, those teams automatically populate the Round of 16 matchups, and so on through the Final — just like a real bracket.</p>
-    <p>Your picks autosave in this browser as you go, so you can leave and come back. When you're done, hit <strong>Submit</strong> — it opens a pre-filled GitHub Issue with your picks attached. That's how your bracket gets stored for scoring.</p>
+    <p>Your picks autosave in this browser as you go, so you can leave and come back. When you're done, hit <strong>Submit</strong> — your bracket goes straight to the pool's Google Sheet.</p>
   </div>
 
   <div class="field-group">
@@ -48,21 +48,22 @@
     <button class="btn btn-ghost" id="reset-btn">Clear Picks</button>
   </div>
 
+  <p id="submit-status" style="margin-top:12px; font-family:var(--font-mono); font-size:12.5px;"></p>
+
   <div class="panel" id="submit-panel" style="display:none; margin-top:24px;">
-    <h3>Almost done</h3>
-    <p>A GitHub Issue should have opened in a new tab with your bracket pre-filled — just hit <strong>Submit new issue</strong> there to lock it in. If a popup blocker stopped it, use the link below.</p>
-    <p><a id="github-issue-link" href="#" target="_blank">Open the GitHub Issue manually →</a></p>
-    <p>Here's the raw JSON, in case you'd rather paste it somewhere yourself:</p>
+    <h3>Bracket submitted!</h3>
+    <p>Your picks have been saved to the pool's Google Sheet. Here's your JSON, in case you want a local copy:</p>
     <textarea class="json-box" id="submit-json-preview" readonly></textarea>
   </div>
 
   <footer class="site-footer">
     <span>Round of 32 matchups confirmed as of June 28, 2026 group-stage results.</span>
-    <span>Picks stored as GitHub Issues for scoring.</span>
+    <span>Picks stored in Google Sheets for scoring.</span>
   </footer>
 
 </div>
 
+<script src="assets/config.js"></script>
 <script src="assets/bracket-data.js"></script>
 <script src="assets/app.js"></script>
 <script>initPredictorPage();</script>

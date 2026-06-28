@@ -2,11 +2,9 @@
 // 2026 World Cup Knockout Predictor — predictor app logic
 // ============================================================
 
-const GITHUB_REPO = "kuod/wc2026-bracket";
-
 const STORAGE_KEY = "wc2026-predictions-draft";
 
-let picks = {};       // matchId -> team name
+let picks = {};
 let predictorName = "";
 
 function loadDraft() {
@@ -79,14 +77,13 @@ function selectTeam(matchId, team) {
 
 function renderMatch(round, match) {
   const [teamA, teamB] = getMatchTeams(round, match);
-  const ready = Boolean(teamA) && Boolean(teamB);
   const picked = picks[match.id];
 
   const metaLine = round.key === "R32"
     ? `<span class="match-id-tag">${match.id}</span><span>${match.date} · ${match.venue}</span>`
     : `<span class="match-id-tag">${match.id}</span><span>Winners advance here</span>`;
 
-  function teamBtnHtml(team, side) {
+  function teamBtnHtml(team) {
     if (!team) {
       return `<button class="team-btn empty" disabled>TBD</button>`;
     }
@@ -100,9 +97,9 @@ function renderMatch(round, match) {
     <div class="match" data-match-id="${match.id}">
       <div class="meta">${metaLine}</div>
       <div class="team-options">
-        ${teamBtnHtml(teamA, "A")}
+        ${teamBtnHtml(teamA)}
         <span class="vs-divider">VS</span>
-        ${teamBtnHtml(teamB, "B")}
+        ${teamBtnHtml(teamB)}
       </div>
     </div>
   `;
@@ -136,7 +133,6 @@ function render() {
   if (!root) return;
   root.innerHTML = ROUNDS.map(renderRound).join("");
 
-  // wire up click handlers
   root.querySelectorAll(".team-btn[data-match]").forEach(btn => {
     btn.addEventListener("click", () => {
       selectTeam(btn.getAttribute("data-match"), btn.getAttribute("data-team"));
@@ -165,25 +161,19 @@ function buildPredictionPayload() {
   };
 }
 
-function buildGithubIssueUrl(payload) {
-  const title = `Prediction: ${payload.predictor}`;
-  const body = [
-    `**Predictor:** ${payload.predictor}`,
-    ``,
-    `Submitted via the World Cup 2026 Knockout Predictor.`,
-    `Do not edit the JSON block below — the scoring page parses it automatically.`,
-    ``,
-    "```json",
-    JSON.stringify(payload, null, 2),
-    "```"
-  ].join("\n");
-
-  const params = new URLSearchParams({
-    title,
-    body,
-    labels: "prediction"
+async function submitToSheet(payload) {
+  if (!SCRIPT_URL) {
+    throw new Error("SCRIPT_URL is not configured in assets/config.js.");
+  }
+  // Apps Script web apps redirect POST requests, which causes browsers to lose
+  // the body. Using no-cors avoids the preflight and lets the POST go through.
+  // We can't read the response in this mode, so we assume success on resolve.
+  await fetch(SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload)
   });
-  return `https://github.com/${GITHUB_REPO}/issues/new?${params.toString()}`;
 }
 
 function initPredictorPage() {
@@ -196,15 +186,32 @@ function initPredictorPage() {
     render();
   });
 
-  document.getElementById("submit-btn").addEventListener("click", () => {
+  document.getElementById("submit-btn").addEventListener("click", async () => {
     const payload = buildPredictionPayload();
-    const url = buildGithubIssueUrl(payload);
+    const submitBtn = document.getElementById("submit-btn");
+    const statusEl = document.getElementById("submit-status");
 
-    document.getElementById("submit-json-preview").textContent = JSON.stringify(payload, null, 2);
-    document.getElementById("submit-panel").style.display = "block";
-    document.getElementById("github-issue-link").href = url;
-    window.open(url, "_blank");
-    document.getElementById("submit-panel").scrollIntoView({ behavior: "smooth" });
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Submitting…";
+    statusEl.textContent = "";
+    statusEl.className = "";
+
+    try {
+      await submitToSheet(payload);
+      document.getElementById("submit-json-preview").textContent = JSON.stringify(payload, null, 2);
+      document.getElementById("submit-panel").style.display = "block";
+      document.getElementById("submit-panel").scrollIntoView({ behavior: "smooth" });
+      statusEl.textContent = "Your picks are in!";
+      statusEl.className = "submit-status-ok";
+    } catch (err) {
+      statusEl.textContent = `Submission failed: ${err.message}. Copy your JSON below as a backup.`;
+      statusEl.className = "submit-status-err";
+      document.getElementById("submit-json-preview").textContent = JSON.stringify(payload, null, 2);
+      document.getElementById("submit-panel").style.display = "block";
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Submit My Bracket";
+    }
   });
 
   document.getElementById("copy-json-btn").addEventListener("click", () => {

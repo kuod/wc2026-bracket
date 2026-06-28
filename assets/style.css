@@ -438,6 +438,18 @@ footer.site-footer {
   gap: 8px;
 }
 
+.submit-status-ok {
+  color: var(--gold-bright);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.submit-status-err {
+  color: #e07070;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
 @media (max-width: 560px) {
   .masthead { padding: 34px 0 22px; }
   .team-options { flex-direction: column; }

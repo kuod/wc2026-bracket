@@ -5,10 +5,10 @@
 // Points per round — later rounds worth more, like a real pick'em.
 const ROUND_POINTS = { R32: 1, R16: 2, QF: 3, SF: 5, FINAL: 8 };
 
-const RESULTS_STORAGE_KEY = "wc2026-actual-results"; // local override stored in this browser
+const RESULTS_STORAGE_KEY = "wc2026-actual-results";
 
-let actualResults = {};   // matchId -> winning team name (only what's known so far)
-let predictions = [];     // [{ predictor, picks, issueUrl, submittedAt }]
+let actualResults = {};
+let predictions = [];
 
 function roundForMatch(matchId) {
   return ROUNDS.find(r => r.matches.some(m => m.id === matchId));
@@ -25,54 +25,25 @@ function saveLocalResults() {
   localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(actualResults));
 }
 
-// Extract the fenced ```json ... ``` block from a GitHub issue body and parse it.
-function parsePredictionFromIssueBody(body) {
-  const match = body.match(/```json\s*([\s\S]*?)```/);
-  if (!match) return null;
-  try {
-    const payload = JSON.parse(match[1]);
-    if (payload.schema !== "wc2026-prediction-v1") return null;
-    return payload;
-  } catch (e) {
-    return null;
-  }
-}
+async function fetchPredictionsFromSheet(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
 
-async function fetchPredictionsFromGithub(repo) {
-  const perPage = 100;
-  let page = 1;
-  let all = [];
-  while (true) {
-    const url = `https://api.github.com/repos/${repo}/issues?labels=prediction&state=all&per_page=${perPage}&page=${page}`;
-    const res = await fetch(url, { headers: { "Accept": "application/vnd.github+json" } });
-    if (!res.ok) {
-      throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
-    }
-    const batch = await res.json();
-    all = all.concat(batch);
-    if (batch.length < perPage) break;
-    page++;
-    if (page > 10) break; // safety valve
-  }
+  const MATCH_IDS = ROUNDS.flatMap(r => r.matches.map(m => m.id));
 
-  const parsed = [];
-  for (const issue of all) {
-    const payload = parsePredictionFromIssueBody(issue.body || "");
-    if (!payload) continue;
-    parsed.push({
-      predictor: payload.predictor || issue.user?.login || "Unknown",
-      picks: payload.picks || {},
-      submittedAt: payload.submittedAt || issue.created_at,
-      issueUrl: issue.html_url,
-      issueNumber: issue.number
-    });
-  }
-  return parsed;
+  return (data.predictions || []).map(row => ({
+    predictor: row.predictor || "Unknown",
+    submittedAt: row.submittedAt || "",
+    issueUrl: null,
+    picks: Object.fromEntries(
+      MATCH_IDS.map(id => [id, row[id] || undefined]).filter(([, v]) => v)
+    )
+  }));
 }
 
 function loadPredictionsFromPastedJson(text) {
-  // Accepts either a single payload object, or an array of payload objects,
-  // one per line or as a JSON array — be forgiving.
   const out = [];
   const tryParseOne = (obj) => {
     if (obj && obj.schema === "wc2026-prediction-v1") {
@@ -153,7 +124,7 @@ function renderResultsEditor() {
       const matchId = btn.getAttribute("data-match");
       const team = btn.getAttribute("data-team");
       if (actualResults[matchId] === team) {
-        delete actualResults[matchId]; // toggle off
+        delete actualResults[matchId];
       } else {
         actualResults[matchId] = team;
       }
@@ -178,7 +149,7 @@ function renderLeaderboard() {
   const board = computeLeaderboard();
 
   if (board.length === 0) {
-    root.innerHTML = `<p style="color:rgba(246,243,234,0.6); font-size:14px;">No predictions loaded yet. Load them from GitHub Issues or paste JSON above.</p>`;
+    root.innerHTML = `<p style="color:rgba(246,243,234,0.6); font-size:14px;">No predictions loaded yet. Click "Load Predictions" above.</p>`;
     return;
   }
 
@@ -191,7 +162,7 @@ function renderLeaderboard() {
         ${board.map((p, i) => `
           <tr>
             <td class="rank">${i + 1}</td>
-            <td>${escapeHtml(p.predictor)}${p.issueUrl ? ` <a href="${p.issueUrl}" target="_blank" class="badge">issue #${p.issueNumber}</a>` : ""}</td>
+            <td>${escapeHtml(p.predictor)}</td>
             <td class="score">${p.score} pts</td>
             <td>${p.correctCount} / ${p.scoredCount || "—"}</td>
             <td><button class="btn btn-ghost" style="padding:4px 10px; font-size:11px;" onclick="toggleDetail(${i})">Details</button></td>
@@ -232,18 +203,21 @@ async function initScorePage() {
   renderResultsEditor();
   renderLeaderboard();
 
-  document.getElementById("load-github-btn").addEventListener("click", async () => {
-    const repoInput = document.getElementById("repo-input");
-    const repo = repoInput.value.trim();
+  // Pre-fill the URL input from config if available.
+  const urlInput = document.getElementById("sheet-url-input");
+  if (urlInput && SCRIPT_URL) urlInput.value = SCRIPT_URL;
+
+  document.getElementById("load-sheet-btn").addEventListener("click", async () => {
+    const url = (urlInput ? urlInput.value.trim() : SCRIPT_URL);
     const statusEl = document.getElementById("load-status");
-    if (!repo) { statusEl.textContent = "Enter a repo first, like username/wc2026-bracket."; return; }
-    statusEl.textContent = "Loading predictions from GitHub Issues…";
+    if (!url) { statusEl.textContent = "Enter a script URL first, or set SCRIPT_URL in assets/config.js."; return; }
+    statusEl.textContent = "Loading predictions from Google Sheet…";
     try {
-      predictions = await fetchPredictionsFromGithub(repo);
-      statusEl.textContent = `Loaded ${predictions.length} prediction(s) from ${repo}.`;
+      predictions = await fetchPredictionsFromSheet(url);
+      statusEl.textContent = `Loaded ${predictions.length} prediction(s).`;
       renderLeaderboard();
     } catch (e) {
-      statusEl.textContent = `Couldn't load issues: ${e.message}`;
+      statusEl.textContent = `Couldn't load predictions: ${e.message}`;
     }
   });
 
@@ -252,7 +226,6 @@ async function initScorePage() {
     const statusEl = document.getElementById("load-status");
     try {
       const fromPaste = loadPredictionsFromPastedJson(text);
-      // merge, replacing any existing entries with the same predictor name
       const byName = new Map(predictions.map(p => [p.predictor, p]));
       fromPaste.forEach(p => byName.set(p.predictor, p));
       predictions = Array.from(byName.values());
