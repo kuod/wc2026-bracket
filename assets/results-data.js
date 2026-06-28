@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-28T22:23:53Z",
+  "generatedAt": "2026-06-28T23:20:08Z",
   "source": "TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -27,7 +27,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-28"
     },
     "R32-2": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Brazil",
       "teamB": "Japan",
@@ -43,7 +43,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-29"
     },
     "R32-3": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Germany",
       "teamB": "Paraguay",
@@ -59,7 +59,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-29"
     },
     "R32-4": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Netherlands",
       "teamB": "Morocco",
@@ -75,7 +75,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-30"
     },
     "R32-5": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Ivory Coast",
       "teamB": "Norway",
@@ -91,7 +91,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-30"
     },
     "R32-6": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "France",
       "teamB": "Sweden",
@@ -107,7 +107,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-30"
     },
     "R32-7": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Mexico",
       "teamB": "Ecuador",
@@ -123,7 +123,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-01"
     },
     "R32-8": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "England",
       "teamB": "DR Congo",
@@ -139,7 +139,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-01"
     },
     "R32-9": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Belgium",
       "teamB": "Senegal",
@@ -155,7 +155,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-01"
     },
     "R32-10": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "United States",
       "teamB": "Bosnia and Herzegovina",
@@ -171,7 +171,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-02"
     },
     "R32-11": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Spain",
       "teamB": "Austria",
@@ -187,7 +187,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-02"
     },
     "R32-12": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Switzerland",
       "teamB": "Algeria",
@@ -203,7 +203,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-03"
     },
     "R32-13": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Portugal",
       "teamB": "Croatia",
@@ -219,7 +219,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-02"
     },
     "R32-14": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Australia",
       "teamB": "Egypt",
@@ -235,7 +235,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-03"
     },
     "R32-15": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Argentina",
       "teamB": "Cape Verde",
@@ -251,7 +251,7 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-03"
     },
     "R32-16": {
-      "status": "played",
+      "status": "scheduled",
       "round": "R32",
       "teamA": "Colombia",
       "teamB": "Ghana",
