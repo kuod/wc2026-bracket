@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="WC2026 bracket">
+  <rect width="64" height="64" rx="13" fill="#07271d"/>
+  <!-- soccer ball: gold pentagon on a chalk sphere -->
+  <circle cx="32" cy="25" r="14" fill="#f6f3ea" stroke="#d4a843" stroke-width="2"/>
+  <path d="M32 16.5l6.3 4.6-2.4 7.4h-7.8l-2.4-7.4z" fill="#1b1f1d"/>
+  <path d="M32 16.5l-6.3 4.6M32 16.5l6.3 4.6M25.7 21.1l-5.6-1.3M38.3 21.1l5.6-1.3M28.1 28.5l-4.4 4.9M35.9 28.5l4.4 4.9"
+        stroke="#1b1f1d" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <!-- 2026 wordmark -->
+  <text x="32" y="54" text-anchor="middle" font-family="'Arial Narrow',Arial,sans-serif"
+        font-weight="700" font-size="15" letter-spacing="0.5" fill="#f0c75e">2026</text>
+</svg>

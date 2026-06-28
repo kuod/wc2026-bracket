@@ -5,64 +5,58 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>2026 World Cup Knockout Predictor</title>
 <meta name="description" content="Pick your winners through every round of the 2026 World Cup knockout stage.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
 
-<div class="progress-bar">
-  <span id="progress-label">0 / 31 picks made</span>
-  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
-</div>
+<div class="page">
 
-<div class="shell">
+  <!-- Slim top bar: title · name · progress · actions · nav. Shared chrome with
+       the leaderboard so navigating between the two feels seamless. -->
+  <header class="topbar">
+    <h1 class="brand">
+      Pick the <em>Bracket</em>
+      <span class="brand-sub">FIFA World Cup 2026 · Knockout</span>
+    </h1>
 
-  <header class="masthead">
-    <div class="eyebrow">FIFA World Cup 2026 · Knockout Stage</div>
-    <h1>Pick the <em>Bracket.</em><br>Prove You Know Ball.</h1>
-    <p class="sub">
-      The Round of 32 is set. 32 teams, one champion, winner gets bragging rights until
-      fantasy football. David refused to pay $12/month for a bracket website, so here we
-      are — pick your winners round by round and the bracket fills itself in. No excuses
-      when you finish last.
-    </p>
-    <nav class="nav-pills">
-      <a href="index.html" class="current">Make Predictions</a>
-      <a href="score.html">Leaderboard / Scoring</a>
-    </nav>
+    <div class="field-group" style="margin:0;">
+      <input type="text" id="predictor-name" placeholder="Your name — e.g. David K." autocomplete="name" aria-label="Your name">
+    </div>
+
+    <div class="progress-bar">
+      <span id="progress-label">0 / 31</span>
+      <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="topbar-tools">
+      <button class="btn btn-primary" id="submit-btn" disabled>Submit</button>
+      <button class="btn btn-ghost" id="copy-json-btn">Copy JSON</button>
+      <button class="btn btn-ghost" id="reset-btn">Clear</button>
+      <nav class="nav-pills">
+        <a href="index.html" class="current">Predict</a>
+        <a href="score.html">Leaderboard</a>
+      </nav>
+    </div>
   </header>
 
-  <div class="panel gold-edge">
-    <h3>Before you start</h3>
-    <p>Enter your name, then call a winner in every match. As you pick winners in the Round of 32, those teams automatically populate the Round of 16 matchups, and so on through the Final — just like a real bracket.</p>
-    <p>Your picks autosave in this browser as you go, so you can leave and come back. When you're done, hit <strong>Submit</strong> — your bracket goes straight to the pool's Google Sheet.</p>
-  </div>
+  <!-- The bracket fills the rest of the viewport. -->
+  <main class="bracket-region" id="bracket-root"><!-- rendered by app.js --></main>
 
-  <div class="field-group">
-    <label for="predictor-name">Your name</label>
-    <input type="text" id="predictor-name" placeholder="e.g. David K." autocomplete="name">
-  </div>
+</div>
 
-  <div id="bracket-root"><!-- rendered by app.js --></div>
-
-  <div class="btn-row">
-    <button class="btn btn-primary" id="submit-btn" disabled>Submit My Bracket</button>
-    <button class="btn btn-ghost" id="copy-json-btn">Copy JSON Instead</button>
-    <button class="btn btn-ghost" id="reset-btn">Clear Picks</button>
-  </div>
-
-  <p id="submit-status" style="margin-top:12px; font-family:var(--font-mono); font-size:12.5px;"></p>
-
-  <div class="panel" id="submit-panel" style="display:none; margin-top:24px;">
-    <h3>Bracket submitted!</h3>
-    <p>Your picks have been saved to the pool's Google Sheet. Here's your JSON, in case you want a local copy:</p>
+<!-- Submit confirmation: a transient toast, not an appended block (keeps the
+     page exactly one screen). app.js toggles .is-shown. -->
+<div class="toast" id="submit-toast" hidden>
+  <strong id="submit-toast-title">Bracket submitted!</strong>
+  <span id="submit-status"></span>
+  <details>
+    <summary>Show / copy JSON</summary>
     <textarea class="json-box" id="submit-json-preview" readonly></textarea>
-  </div>
-
-  <footer class="site-footer">
-    <span>Round of 32 matchups confirmed as of June 28, 2026 group-stage results.</span>
-    <span>Picks stored in Google Sheets for scoring.</span>
-  </footer>
-
+  </details>
+  <button class="toast-close" id="submit-toast-close" aria-label="Dismiss">×</button>
 </div>
 
 <script src="assets/config.js"></script>

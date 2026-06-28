@@ -41,6 +41,21 @@ const TEAM_CODES = {
   "Ghana": "gh"
 };
 
+// FIFA three-letter team codes (trigrammes). Shown in the cramped Round-of-32
+// columns of the symmetric bracket, where full names can't fit. Distinct from
+// TEAM_CODES above, which holds ISO alpha-2 codes used only for flag image URLs.
+const TEAM_SHORT = {
+  "South Africa": "RSA", "Canada": "CAN", "Brazil": "BRA", "Japan": "JPN",
+  "Germany": "GER", "Paraguay": "PAR", "Netherlands": "NED", "Morocco": "MAR",
+  "Ivory Coast": "CIV", "Norway": "NOR", "France": "FRA", "Sweden": "SWE",
+  "Mexico": "MEX", "Ecuador": "ECU", "England": "ENG", "DR Congo": "COD",
+  "Belgium": "BEL", "Senegal": "SEN", "United States": "USA",
+  "Bosnia and Herzegovina": "BIH", "Spain": "ESP", "Austria": "AUT",
+  "Switzerland": "SUI", "Algeria": "ALG", "Portugal": "POR", "Croatia": "CRO",
+  "Australia": "AUS", "Egypt": "EGY", "Argentina": "ARG", "Cape Verde": "CPV",
+  "Colombia": "COL", "Ghana": "GHA"
+};
+
 // TheSportsDB (and other feeds) name some teams differently from our canonical
 // display names. Map their spelling -> ours. Keys are matched after running
 // normalizeTeam() on both sides, so accents/case/punctuation don't matter here.
@@ -159,4 +174,120 @@ function resolveTeamName(externalName) {
     if (normalizeTeam(canonical) === norm) return canonical;
   }
   return null;
+}
+
+// The FIFA three-letter code for a team, for the tight Round-of-32 columns.
+// Falls back to the first three letters uppercased if a team isn't mapped.
+function shortCode(team) {
+  if (!team) return "";
+  return TEAM_SHORT[team] || team.slice(0, 3).toUpperCase();
+}
+
+// ============================================================
+// Symmetric bracket layout (shared by the predictor + leaderboard)
+// ============================================================
+// A classic wall-chart bracket: the two halves of the draw fan in from the
+// left and right edges and converge on a centered Final. The layout is derived
+// entirely from the `from:[...]` feeder graph by walking it — it never assumes
+// match ids are paired in a particular order — so if the bracket topology is
+// ever corrected, the chart reshapes itself automatically.
+
+// Index every match by id, tagging the round it belongs to.
+const MATCH_BY_ID = {};
+ROUNDS.forEach(r => r.matches.forEach(m => { MATCH_BY_ID[m.id] = { match: m, round: r.key }; }));
+
+// All match ids in a subtree (a node + everything feeding it).
+function _subtree(id, acc) {
+  acc.add(id);
+  const node = MATCH_BY_ID[id];
+  if (node && node.match.from) node.match.from.forEach(f => _subtree(f, acc));
+  return acc;
+}
+// SF-1's subtree is the left half of the draw; SF-2's is the right half.
+const LEFT_MATCH_IDS = _subtree("SF-1", new Set());
+const RIGHT_MATCH_IDS = _subtree("SF-2", new Set());
+
+// Which grid column (1..9) a round sits in, per side. Final is the centre (5).
+const _COL_LEFT  = { R32: 1, R16: 2, QF: 3, SF: 4, FINAL: 5 };
+const _COL_RIGHT = { R32: 9, R16: 8, QF: 7, SF: 6, FINAL: 5 };
+
+// Leaf (R32) matches of a subtree, in top-to-bottom visual order (feeder DFS).
+function _leaves(id, acc) {
+  const node = MATCH_BY_ID[id];
+  if (!node.match.from) { acc.push(id); return acc; }
+  node.match.from.forEach(f => _leaves(f, acc));
+  return acc;
+}
+
+function sideOf(matchId) {
+  if (RIGHT_MATCH_IDS.has(matchId)) return "right";
+  if (LEFT_MATCH_IDS.has(matchId)) return "left";
+  return "center"; // the Final
+}
+
+// Render the whole bracket as one CSS grid. `renderCard(roundKey, match, side)`
+// returns the inner HTML of a single match cell (interactive on the predictor,
+// read-only on the leaderboard). Cells are placed explicitly by grid-row/column:
+// each R32 leaf gets two rows; every later match spans the union of its feeders'
+// rows and centres within them, so a card always sits level with the gap between
+// the two it draws from — which is what makes the connector elbows line up.
+function renderSymmetricBracket({ renderCard }) {
+  const leftLeaves = _leaves("SF-1", []);
+  const rightLeaves = _leaves("SF-2", []);
+  const rows = 2 * Math.max(leftLeaves.length, rightLeaves.length, 1);
+
+  const slotOf = {};
+  leftLeaves.forEach((id, i) => { slotOf[id] = i; });
+  rightLeaves.forEach((id, i) => { slotOf[id] = i; });
+
+  function rowSpan(id) {
+    const node = MATCH_BY_ID[id];
+    if (!node.match.from) {
+      const s = slotOf[id] || 0;
+      return { start: 2 * s + 1, end: 2 * s + 2 };
+    }
+    const spans = node.match.from.map(rowSpan);
+    return {
+      start: Math.min(...spans.map(s => s.start)),
+      end: Math.max(...spans.map(s => s.end))
+    };
+  }
+
+  const cells = [];
+  for (const round of ROUNDS) {
+    // A round divider — hidden on desktop (the grid places cells by column), but
+    // shown on mobile where cells stack vertically, so it's always clear which
+    // round you're looking at / picking in.
+    cells.push(`<div class="sym-round-tag" data-round="${round.key}">${round.label}</div>`);
+    for (const m of round.matches) {
+      const side = sideOf(m.id);
+      const col = side === "right" ? _COL_RIGHT[round.key] : _COL_LEFT[round.key];
+      const span = rowSpan(m.id);
+      const style = `grid-column:${col};grid-row:${span.start}/${span.end + 1};`;
+      // sym-has-feeders drives the connector-elbow CSS; sym-leaf marks R32.
+      const feeders = m.from ? " sym-has-feeders" : " sym-leaf";
+      cells.push(
+        `<div class="sym-cell sym-${round.key} sym-${side}${feeders}" data-match-id="${m.id}" style="${style}">` +
+        renderCard(round.key, m, side) +
+        `</div>`
+      );
+    }
+  }
+
+  // A single static label strip across the top — no sticky per-column headers
+  // (those used to float over the cards). Mirrors L→R: R32 R16 QF SF · SF QF R16 R32.
+  const labels = ["Round of 32", "Round of 16", "Quarters", "Semis", "Final",
+                  "Semis", "Quarters", "Round of 16", "Round of 32"];
+  const labelStrip = labels
+    .map((t, i) => `<span class="sym-label" style="grid-column:${i + 1};">${t}</span>`)
+    .join("");
+
+  // The official high-res WC2026 vector logo floats in the centre column, above
+  // the Final, filling the natural empty space at the heart of the bracket.
+  const emblem =
+    `<div class="sym-emblem" aria-hidden="true" style="grid-column:5;grid-row:1/${rows + 1};">` +
+    `<img src="img/fifa-world-cup-2026-4.svg" alt="" width="200" height="220"></div>`;
+
+  return `<div class="sym-labels">${labelStrip}</div>` +
+    `<div class="sym-bracket" style="grid-template-rows:repeat(${rows},1fr);">${emblem}${cells.join("")}</div>`;
 }

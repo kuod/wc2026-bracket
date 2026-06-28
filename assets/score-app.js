@@ -6,6 +6,10 @@
 // (run on a schedule by a GitHub Action), and assets/results-overrides.js holds
 // any hand corrections. The browser just reads those two globals, fetches
 // everyone's predictions from the Google Sheet once, scores them, and renders.
+//
+// The leaderboard is built around ONE persistent symmetric bracket (the same
+// renderSymmetricBracket used by the predictor). By default it shows reality;
+// clicking a name morphs it in place to that person's picks vs reality.
 
 // Points per round — later rounds worth more, like a real pick'em.
 const ROUND_POINTS = { R32: 1, R16: 2, QF: 3, SF: 5, FINAL: 8 };
@@ -13,6 +17,14 @@ const ROUND_POINTS = { R32: 1, R16: 2, QF: 3, SF: 5, FINAL: 8 };
 let actualResults = {};   // matchId -> winning team name (decided matches only)
 let resultsMeta = null;   // the WC2026_RESULTS payload (for the "updated" stamp)
 let predictions = [];
+let selectedPredictor = null;   // null => canvas shows live results
+
+// Escape a value for use inside a double-quoted HTML attribute. (escapeHtml in
+// bracket-data.js handles element text; this is the attribute-context partner,
+// kept local since app.js — which defines its own — isn't loaded on this page.)
+function escapeAttr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
 
 // ---- Results: overrides win over embedded; nothing is fetched live ----------
 
@@ -132,7 +144,80 @@ function computeLeaderboard() {
                     || a.predictor.localeCompare(b.predictor));
 }
 
-// ---- Rendering: ranked list + expandable per-person bracket -----------------
+// ---- The bracket canvas (reality <-> selected person) -----------------------
+
+// One match cell. In "reality" mode it shows the actual winner; in "person"
+// mode it shows that predictor's pick, styled correct / wrong / pending.
+function canvasCard(roundKey, match, side, pred) {
+  function row(team, opts) {
+    if (!team) return `<div class="team-row empty"><span class="team-name">TBD</span></div>`;
+    const cls = opts && opts.state ? ` pick-${opts.state}` : (opts && opts.win ? " selected" : "");
+    const mark = opts && opts.state === "correct" ? "✓" : opts && opts.state === "wrong" ? "✗" : "";
+    const actual = opts && opts.actual
+      ? `<span class="pick-actual" title="Actual winner">→ ${escapeHtml(shortCode(opts.actual))}</span>` : "";
+    return `<div class="team-row${cls}" title="${escapeAttr(team)}">
+        ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
+        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${actual}
+      </div>`;
+  }
+
+  const actual = actualResults[match.id];
+
+  if (!pred) {
+    // Reality: highlight the actual winner; the loser shown muted; TBD if undecided.
+    const winner = actual || null;
+    if (roundKey === "R32") {
+      return `<div class="match-card">
+        <div class="team-stack">
+          ${row(match.teamA, { win: winner === match.teamA })}
+          ${row(match.teamB, { win: winner === match.teamB })}
+        </div></div>`;
+    }
+    // Later rounds in reality view: show the winner (if known) on top, else TBD.
+    return `<div class="match-card">
+      <div class="team-stack">
+        ${row(winner, { win: !!winner })}
+        ${row(null)}
+      </div></div>`;
+  }
+
+  // Person view: show this predictor's pick for the match, marked vs reality.
+  const guess = pred.picks[match.id];
+  const state = pickState(match.id, guess);
+  const showActual = state === "wrong" && actual ? actual : null;
+  // Show only the predictor's pick (one row) so the canvas reads as their path.
+  return `<div class="match-card">
+    <div class="team-stack">
+      ${row(guess, { state, actual: showActual })}
+    </div></div>`;
+}
+
+function renderBracketCanvas() {
+  const root = document.getElementById("bracket-canvas-root");
+  if (!root) return;
+  const pred = selectedPredictor
+    ? computeLeaderboard().find(p => p.predictor === selectedPredictor) || null
+    : null;
+
+  root.innerHTML = renderSymmetricBracket({
+    renderCard: (rk, m, side) => canvasCard(rk, m, side, pred)
+  });
+
+  // Canvas header reflects what's shown.
+  const title = document.getElementById("canvas-title");
+  const score = document.getElementById("canvas-score");
+  if (pred) {
+    const board = computeLeaderboard();
+    const rank = board.findIndex(p => p.predictor === pred.predictor) + 1;
+    title.textContent = pred.predictor;
+    score.textContent = `${pred.score} pts · ${pred.correctCount}/${pred.decidedCount || 0} correct · rank #${rank}`;
+  } else {
+    title.textContent = "Live Results";
+    score.textContent = `${decidedCount()} match(es) decided`;
+  }
+}
+
+// ---- Ranked list (a selector that drives the canvas) ------------------------
 
 function teamCell(team) {
   if (!team) return `<span class="lb-team muted">—</span>`;
@@ -152,67 +237,35 @@ function renderLeaderboard() {
   const decided = decidedCount();
   const rows = board.map((p, i) => {
     const medal = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+    const active = p.predictor === selectedPredictor ? " is-active" : "";
     return `
-      <li class="lb-entry" data-idx="${i}">
-        <button class="lb-row" aria-expanded="false">
+      <li class="lb-entry${active}" data-name="${escapeAttr(p.predictor)}">
+        <button class="lb-row">
           <span class="lb-rank ${medal}">${i + 1}</span>
           <span class="lb-name">${escapeHtml(p.predictor)}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
           <span class="lb-score">${p.score}<span class="muted">pts</span></span>
-          <span class="lb-caret" aria-hidden="true">▾</span>
+          <span class="lb-caret" aria-hidden="true">${active ? "●" : "▸"}</span>
         </button>
-        <div class="lb-detail" hidden>${renderPersonBracket(p)}</div>
       </li>
     `;
   }).join("");
 
   root.innerHTML = `<ol class="lb-list">${rows}</ol>`;
 
-  root.querySelectorAll(".lb-row").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const entry = btn.closest(".lb-entry");
-      const detail = entry.querySelector(".lb-detail");
-      const open = btn.getAttribute("aria-expanded") === "true";
-      btn.setAttribute("aria-expanded", String(!open));
-      detail.hidden = open;
-      entry.classList.toggle("is-open", !open);
+  root.querySelectorAll(".lb-entry").forEach(entry => {
+    entry.querySelector(".lb-row").addEventListener("click", () => {
+      const name = entry.getAttribute("data-name");
+      // Toggle: click the active person again to return to live results.
+      selectedPredictor = (selectedPredictor === name) ? null : name;
+      renderLeaderboard();
+      renderBracketCanvas();
     });
   });
 }
 
-// One person's full bracket in round columns, each pick marked vs reality.
-function renderPersonBracket(p) {
-  const mark = { correct: "✓", wrong: "✗", pending: "·" };
-  const cols = ROUNDS.map(round => {
-    const sub = p.roundSubtotals[round.key];
-    const cards = round.matches.map(match => {
-      const guess = p.picks[match.id];
-      const actual = actualResults[match.id];
-      const state = pickState(match.id, guess);
-      const showActual = state === "wrong" && actual;
-      return `
-        <div class="pb-pick pb-${state}">
-          <span class="pb-mark">${mark[state]}</span>
-          <span class="pb-guess">${guess ? teamCell(guess) : `<span class="muted">no pick</span>`}</span>
-          ${showActual ? `<span class="pb-actual">→ ${teamCell(actual)}</span>` : ""}
-        </div>
-      `;
-    }).join("");
-    return `
-      <div class="pb-col">
-        <div class="pb-col-head">
-          <span>${round.label}</span>
-          <span class="muted">${sub.correct}/${sub.decided || 0}</span>
-        </div>
-        ${cards}
-      </div>
-    `;
-  }).join("");
-  return `<div class="pb-board">${cols}</div>`;
-}
-
-// ---- Pool stats -------------------------------------------------------------
+// ---- Pool stats (6 cards) ---------------------------------------------------
 
 function tally(matchId) {
   // Returns [{team, count, share}] sorted desc for one match across all picks.
@@ -236,12 +289,13 @@ function renderPoolStats() {
 
   const n = predictions.length;
 
-  // Champion distribution (FINAL pick).
+  // 1) Champion distribution (FINAL pick).
   const champs = tally("FINAL");
-  const champBars = champs.map(c => statBar(c.team, c.count, c.share)).join("") ||
+  const champBars = champs.slice(0, 5).map(c => statBar(c.team, c.count, c.share)).join("") ||
     `<p class="muted">No champion picks yet.</p>`;
 
-  // Most common predicted Final matchup (unordered pair of FINAL feeders).
+  // 2) Predicted Final matchups — tally every unordered pair of FINAL feeders
+  //    across the pool and surface the top 4 distinct matchups with counts.
   const finalMatch = ROUNDS.find(r => r.key === "FINAL").matches[0];
   const finalPairs = {};
   for (const p of predictions) {
@@ -251,12 +305,14 @@ function renderPoolStats() {
     const key = [a, b].sort().join(" ‹vs› ");
     finalPairs[key] = (finalPairs[key] || 0) + 1;
   }
-  const topFinal = Object.entries(finalPairs).sort((x, y) => y[1] - x[1])[0];
-  const finalHtml = topFinal
-    ? `<div class="stat-line"><strong>${escapeHtml(topFinal[0])}</strong><span class="muted">${topFinal[1]} of ${n}</span></div>`
+  const topFinals = Object.entries(finalPairs).sort((x, y) => y[1] - x[1]).slice(0, 4);
+  const finalHtml = topFinals.length
+    ? topFinals.map(([pair, count]) =>
+        `<div class="stat-line"><strong>${escapeHtml(pair)}</strong><span class="muted">${count} of ${n}</span></div>`
+      ).join("")
     : `<p class="muted">Not enough finalist picks yet.</p>`;
 
-  // Most divisive R32 match — closest to an even split (entropy-ish: min top share).
+  // 3) Most divisive opener — R32 match closest to an even split.
   let divisive = null;
   for (const m of ROUNDS[0].matches) {
     const t = tally(m.id);
@@ -266,10 +322,10 @@ function renderPoolStats() {
   }
   const divisiveHtml = divisive
     ? `<div class="stat-sub muted">${divisive.match.id}</div>` +
-      divisive.t.map(c => statBar(c.team, c.count, c.share)).join("")
+      divisive.t.slice(0, 2).map(c => statBar(c.team, c.count, c.share)).join("")
     : `<p class="muted">No picks yet.</p>`;
 
-  // Contrarian-correct: a correct pick that ≤15% of the pool made.
+  // 4) Boldest correct calls — a correct pick that ≤15% of the pool made.
   const contrarian = [];
   for (const round of ROUNDS) {
     for (const m of round.matches) {
@@ -280,20 +336,43 @@ function renderPoolStats() {
       if (winnerStat && winnerStat.share > 0 && winnerStat.share <= 0.15) {
         for (const p of predictions) {
           if (p.picks[m.id] === actual) {
-            contrarian.push({ who: p.predictor, team: actual, matchId: m.id,
-                              count: winnerStat.count });
+            contrarian.push({ who: p.predictor, team: actual, matchId: m.id, count: winnerStat.count });
           }
         }
       }
     }
   }
   const contrarianHtml = contrarian.length
-    ? contrarian.slice(0, 8).map(c =>
-        `<div class="stat-line"><span>${escapeHtml(c.who)} called ${flag(c.team)} <strong>${escapeHtml(c.team)}</strong></span><span class="muted">${c.matchId} · ${c.count} of ${n}</span></div>`
+    ? contrarian.slice(0, 6).map(c =>
+        `<div class="stat-line"><span>${escapeHtml(c.who)} called ${flag(c.team)} <strong>${escapeHtml(c.team)}</strong></span><span class="muted">${c.matchId}</span></div>`
       ).join("")
     : `<p class="muted">No bold correct calls yet — check back as results come in.</p>`;
 
-  // Score distribution summary.
+  // 5) Lone wolves — picks that exactly ONE person in the pool made (the most
+  //    contrarian standing calls). Works before any results are in.
+  const lone = [];
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      const t = tally(m.id);
+      for (const s of t) {
+        if (s.count === 1) {
+          const who = predictions.find(p => p.picks[m.id] === s.team);
+          if (who) lone.push({ who: who.predictor, team: s.team, matchId: m.id, round: round.key });
+        }
+      }
+    }
+  }
+  // Surface the boldest (latest-round) lone calls first.
+  const roundOrder = { R32: 0, R16: 1, QF: 2, SF: 3, FINAL: 4 };
+  lone.sort((a, b) => roundOrder[b.round] - roundOrder[a.round]);
+  const loneHtml = lone.length
+    ? lone.slice(0, 6).map(c =>
+        `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong>${escapeHtml(c.team)}</strong></span><span class="muted">${c.matchId}</span></div>`
+      ).join("")
+    : `<p class="muted">No solo picks — the pool agrees so far.</p>`;
+
+  // 6) Pool at a glance + "chalk score" (how herd-like the pool is: average
+  //    top-pick share across all matches that have any picks).
   const board = computeLeaderboard();
   const scores = board.map(p => p.score).sort((a, b) => a - b);
   const avg = scores.length ? (scores.reduce((s, x) => s + x, 0) / scores.length) : 0;
@@ -301,30 +380,44 @@ function renderPoolStats() {
     ? (scores.length % 2 ? scores[(scores.length - 1) / 2]
        : (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2)
     : 0;
+  let shareSum = 0, shareN = 0;
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      const t = tally(m.id);
+      if (t.length) { shareSum += t[0].share; shareN++; }
+    }
+  }
+  const chalk = shareN ? Math.round((shareSum / shareN) * 100) : 0;
 
   root.innerHTML = `
     <div class="stat-grid">
       <div class="stat-card">
-        <h3>Who they're backing for the title</h3>
+        <h3>Title backers</h3>
         ${champBars}
       </div>
       <div class="stat-card">
         <h3>Most-predicted Final</h3>
         ${finalHtml}
-        <h3 style="margin-top:18px;">Most divisive opener</h3>
+      </div>
+      <div class="stat-card">
+        <h3>Most divisive opener</h3>
         ${divisiveHtml}
       </div>
       <div class="stat-card">
         <h3>Boldest correct calls</h3>
         ${contrarianHtml}
       </div>
+      <div class="stat-card">
+        <h3>Lone wolves</h3>
+        ${loneHtml}
+      </div>
       <div class="stat-card stat-card-mini">
         <h3>Pool at a glance</h3>
         <div class="stat-line"><span>Brackets in</span><strong>${n}</strong></div>
         <div class="stat-line"><span>Matches decided</span><strong>${decidedCount()}</strong></div>
         <div class="stat-line"><span>Average score</span><strong>${avg.toFixed(1)}</strong></div>
-        <div class="stat-line"><span>Median score</span><strong>${median}</strong></div>
-        <div class="stat-line"><span>Top score</span><strong>${board.length ? board[0].score : 0}</strong></div>
+        <div class="stat-line"><span>Median / top</span><strong>${median} / ${board.length ? board[0].score : 0}</strong></div>
+        <div class="stat-line"><span>Chalk score</span><strong>${chalk}%</strong></div>
       </div>
     </div>
   `;
@@ -372,10 +465,11 @@ function renderUpdatedStamp() {
 async function initScorePage() {
   loadResults();
   renderUpdatedStamp();
+  renderBracketCanvas();
   renderLeaderboard();
   renderPoolStats();
 
-  const refresh = () => { renderLeaderboard(); renderPoolStats(); renderUpdatedStamp(); };
+  const refresh = () => { renderBracketCanvas(); renderLeaderboard(); renderPoolStats(); renderUpdatedStamp(); };
 
   // Auto-load everyone's predictions from the Google Sheet.
   if (typeof SCRIPT_URL === "string" && SCRIPT_URL) {

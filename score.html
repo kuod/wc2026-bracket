@@ -4,56 +4,75 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Leaderboard — World Cup 2026 Knockout Predictor</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="assets/style.css">
 </head>
-<body>
+<body class="on-leaderboard">
 
-<div class="shell">
+<div class="page">
 
-  <header class="masthead">
-    <div class="eyebrow">FIFA World Cup 2026 · Scoring</div>
-    <h1>The <em>Leaderboard.</em></h1>
-    <p class="sub">
-      Everyone's brackets, ranked. Results update automatically as knockout matches finish —
-      click any name to see exactly where they nailed it and where it all went wrong.
-    </p>
-    <nav class="nav-pills">
-      <a href="index.html">Make Predictions</a>
-      <a href="score.html" class="current">Leaderboard / Scoring</a>
-    </nav>
+  <!-- Same slim top bar as the predictor, so the two pages feel like one app. -->
+  <header class="topbar">
+    <h1 class="brand">
+      The <em>Leaderboard</em>
+      <span class="brand-sub">FIFA World Cup 2026 · Scoring</span>
+    </h1>
+
+    <div class="scoring-key">
+      <span class="key-chip">R32 <b>1</b></span>
+      <span class="key-chip">R16 <b>2</b></span>
+      <span class="key-chip">QF <b>3</b></span>
+      <span class="key-chip">SF <b>5</b></span>
+      <span class="key-chip">Final <b>8</b></span>
+    </div>
+
+    <span class="spacer"></span>
+
+    <div class="topbar-tools">
+      <nav class="nav-pills">
+        <a href="index.html">Predict</a>
+        <a href="score.html" class="current">Leaderboard</a>
+      </nav>
+    </div>
   </header>
 
-  <div class="scoring-key">
-    <span class="key-chip">R32 <b>1</b></span>
-    <span class="key-chip">R16 <b>2</b></span>
-    <span class="key-chip">QF <b>3</b></span>
-    <span class="key-chip">SF <b>5</b></span>
-    <span class="key-chip">Final <b>8</b></span>
-  </div>
+  <main class="lb-dashboard">
 
-  <p id="results-stamp" class="results-stamp"></p>
-  <p id="lb-status" class="lb-status"></p>
+    <!-- The persistent bracket canvas: shows real results by default, morphs to
+         a selected person's picks when their row is clicked. -->
+    <section id="bracket-canvas">
+      <div class="canvas-head">
+        <h2 class="ch-title" id="canvas-title">Live Results</h2>
+        <span class="ch-score" id="canvas-score"></span>
+        <span class="ch-hint" id="canvas-hint">Click a name below to see their bracket · click again for live results</span>
+      </div>
+      <div class="bracket-region" id="bracket-canvas-root"><!-- rendered by score-app.js --></div>
+    </section>
 
-  <div id="leaderboard-root"><!-- rendered by score-app.js --></div>
+    <!-- Lower zone: ranked-list selector on the left, pool stats on the right. -->
+    <section class="lb-lower">
+      <div class="lb-listwrap">
+        <p id="results-stamp" class="results-stamp"></p>
+        <p id="lb-status" class="lb-status"></p>
+        <div id="leaderboard-root"><!-- rendered by score-app.js --></div>
+      </div>
 
-  <div class="round-section" style="margin-top:48px;">
-    <div class="round-header"><h2>Pool stats</h2></div>
-    <div id="pool-stats-root"></div>
-  </div>
+      <div class="lb-stats">
+        <div id="pool-stats-root"></div>
+      </div>
+    </section>
 
-  <details class="paste-fallback">
-    <summary>Brackets not loading? Paste them manually</summary>
-    <p>If automatic loading fails, paste one or more submitted bracket JSON payloads here:</p>
-    <textarea class="json-box" id="paste-json-input" placeholder='{"schema":"wc2026-prediction-v1", ...}'></textarea>
-    <button class="btn btn-ghost" id="load-paste-btn" style="margin-top:10px;">Load From Pasted JSON</button>
-  </details>
-
-  <footer class="site-footer">
-    <span>Scoring: R32 = 1pt · R16 = 2pt · QF = 3pt · SF = 5pt · Final = 8pt</span>
-    <span>Results auto-updated from TheSportsDB.</span>
-  </footer>
+  </main>
 
 </div>
+
+<!-- Manual paste fallback as an overlay toast (kept off the single-screen flow). -->
+<details class="paste-fallback" id="paste-fallback">
+  <summary>Brackets not loading? Paste manually</summary>
+  <p>If automatic loading fails, paste one or more submitted bracket JSON payloads:</p>
+  <textarea class="json-box" id="paste-json-input" placeholder='{"schema":"wc2026-prediction-v1", ...}'></textarea>
+  <button class="btn btn-ghost" id="load-paste-btn" style="margin-top:10px;">Load From Pasted JSON</button>
+</details>
 
 <script src="assets/config.js"></script>
 <script src="assets/bracket-data.js"></script>
