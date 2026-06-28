@@ -1,5 +1,7 @@
 # 2026 World Cup Knockout Predictor
 
+**[https://kuod.github.io/wc2026-bracket/](https://kuod.github.io/wc2026-bracket/)**
+
 A static, no-backend bracket predictor for the FIFA World Cup 2026 knockout stage (Round of 32 → Final). Friends fill out picks at a link you share; their picks get stored as GitHub Issues (the "backend"); you score it on a separate leaderboard page once results come in.
 
 ## How it works
