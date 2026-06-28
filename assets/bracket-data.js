@@ -17,7 +17,7 @@ const FLAGS = {
   "Sweden": "🇸🇪",
   "Mexico": "🇲🇽",
   "Ecuador": "🇪🇨",
-  "England": "🏴",
+  "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
   "DR Congo": "🇨🇩",
   "Belgium": "🇧🇪",
   "Senegal": "🇸🇳",
