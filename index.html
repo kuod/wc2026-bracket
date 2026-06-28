@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2026 World Cup Knockout Predictor</title>
+<meta name="description" content="Pick your winners through every round of the 2026 World Cup knockout stage.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<div class="progress-bar">
+  <span id="progress-label">0 / 21 picks made</span>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+</div>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="eyebrow">FIFA World Cup 2026 · Knockout Stage</div>
+    <h1>Pick the <em>Bracket.</em><br>Settle it Forever.</h1>
+    <p class="sub">
+      32 teams. One champion. Call every round from the Round of 32 through the Final —
+      your picks carry forward automatically, so the bracket fills itself in as you go.
+    </p>
+    <nav class="nav-pills">
+      <a href="index.html" class="current">Make Predictions</a>
+      <a href="score.html">Leaderboard / Scoring</a>
+    </nav>
+  </header>
+
+  <div class="panel gold-edge">
+    <h3>Before you start</h3>
+    <p>Enter your name, then call a winner in every match. As you pick winners in the Round of 32, those teams automatically populate the Round of 16 matchups, and so on through the Final — just like a real bracket.</p>
+    <p>Your picks autosave in this browser as you go, so you can leave and come back. When you're done, hit <strong>Submit</strong> — it opens a pre-filled GitHub Issue with your picks attached. That's how your bracket gets stored for scoring.</p>
+  </div>
+
+  <div class="field-group">
+    <label for="predictor-name">Your name</label>
+    <input type="text" id="predictor-name" placeholder="e.g. David K." autocomplete="name">
+  </div>
+
+  <div id="bracket-root"><!-- rendered by app.js --></div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" id="submit-btn" disabled>Submit My Bracket</button>
+    <button class="btn btn-ghost" id="copy-json-btn">Copy JSON Instead</button>
+    <button class="btn btn-ghost" id="reset-btn">Clear Picks</button>
+  </div>
+
+  <div class="panel" id="submit-panel" style="display:none; margin-top:24px;">
+    <h3>Almost done</h3>
+    <p>A GitHub Issue should have opened in a new tab with your bracket pre-filled — just hit <strong>Submit new issue</strong> there to lock it in. If a popup blocker stopped it, use the link below.</p>
+    <p><a id="github-issue-link" href="#" target="_blank">Open the GitHub Issue manually →</a></p>
+    <p>Here's the raw JSON, in case you'd rather paste it somewhere yourself:</p>
+    <textarea class="json-box" id="submit-json-preview" readonly></textarea>
+  </div>
+
+  <footer class="site-footer">
+    <span>Round of 32 matchups confirmed as of June 28, 2026 group-stage results.</span>
+    <span>Picks stored as GitHub Issues for scoring.</span>
+  </footer>
+
+</div>
+
+<script src="assets/bracket-data.js"></script>
+<script src="assets/app.js"></script>
+<script>initPredictorPage();</script>
+</body>
+</html>
