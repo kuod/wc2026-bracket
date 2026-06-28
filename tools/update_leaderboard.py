@@ -267,8 +267,19 @@ def build(bracket, events, resolve):
         if team_a and team_b:
             ev = pool.get(frozenset((team_a, team_b)))
             if ev:
+                # "complete" once a winner is resolved; "played" only when the
+                # match has actually finished but the winner is still undetermined
+                # (e.g. a level score we couldn't auto-resolve); otherwise the
+                # fixture exists in the feed but hasn't kicked off yet, so it's
+                # still "scheduled" rather than mislabeled "played".
+                if ev["winner"]:
+                    status = "complete"
+                elif ev["status"] in COMPLETED_STATUSES:
+                    status = "played"
+                else:
+                    status = "scheduled"
                 meta.update({
-                    "status": "complete" if ev["winner"] else "played",
+                    "status": status,
                     "winner": ev["winner"],
                     "homeTeam": ev["home"], "awayTeam": ev["away"],
                     "homeScore": ev["homeScore"], "awayScore": ev["awayScore"],

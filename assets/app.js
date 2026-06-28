@@ -88,7 +88,10 @@ function selectTeam(matchId, team) {
 }
 
 function escapeAttr(s) {
-  return String(s).replace(/"/g, "&quot;");
+  // Escape & before " so an existing entity isn't double-encoded and a value
+  // can't break out of the double-quoted attribute context. (Mirrors the helper
+  // in score-app.js.) Team names are controlled today, but keep it robust.
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
 // One match cell for the symmetric bracket: two pickable team rows. In the
@@ -105,7 +108,10 @@ function renderCard(roundKey, match, side) {
     const selected = picked === team ? " selected" : "";
     // Three-letter codes throughout the bracket; full name in the tooltip.
     const label = escapeHtml(shortCode(team));
-    return `<button class="team-row${selected}" data-match="${match.id}" data-team="${escapeAttr(team)}" title="${escapeAttr(team)}">
+    // The visible label is a 3-letter code, so give screen readers the full
+    // team name + match as the accessible action ("Pick Canada for R32-1").
+    const aria = escapeAttr(`Pick ${team} for ${match.id}`);
+    return `<button class="team-row${selected}" data-match="${match.id}" data-team="${escapeAttr(team)}" title="${escapeAttr(team)}" aria-label="${aria}" aria-pressed="${picked === team}">
         ${flag(team)}<span class="team-name">${label}</span>
         <span class="pick-dot" aria-hidden="true"></span>
       </button>`;
@@ -138,8 +144,12 @@ function render() {
 
   const nameInput = document.getElementById("predictor-name");
   const submitBtn = document.getElementById("submit-btn");
-  if (submitBtn) submitBtn.disabled = done < total || !(nameInput && nameInput.value.trim());
+  // Sync the input from state BEFORE the disabled check, and gate on
+  // predictorName (the source of truth) rather than the live DOM value —
+  // otherwise a restored complete draft loads with Submit stuck disabled,
+  // because on first render the input hasn't been repopulated yet.
   if (nameInput && nameInput.value !== predictorName) nameInput.value = predictorName;
+  if (submitBtn) submitBtn.disabled = done < total || !predictorName.trim();
 }
 
 function buildPredictionPayload() {

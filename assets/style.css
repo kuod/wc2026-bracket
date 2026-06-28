@@ -552,6 +552,9 @@ textarea.json-box {
   flex-wrap: wrap;
   margin: 4px 0 18px;
 }
+/* In the slim leaderboard topbar the chip row is inline chrome, so drop the
+   block margin that would otherwise make the bar taller than the predictor's. */
+.topbar .scoring-key { margin: 0; }
 .key-chip {
   font-family: var(--font-mono);
   font-size: 11px;

@@ -132,7 +132,7 @@ function scorePrediction(pred) {
 }
 
 function computeLeaderboard() {
-  return predictions
+  const board = predictions
     .map(pred => {
       const { score, breakdown, roundSubtotals } = scorePrediction(pred);
       const correctCount = breakdown.filter(b => b.state === "correct").length;
@@ -142,9 +142,31 @@ function computeLeaderboard() {
     })
     .sort((a, b) => b.score - a.score || b.correctCount - a.correctCount
                     || a.predictor.localeCompare(b.predictor));
+
+  // Dense ranking by score: everyone on the same points shares one rank, and the
+  // next distinct score takes the next consecutive number (7 tied on 1pt → all
+  // rank 1, the next group is rank 2). correctCount/name still order people
+  // *within* a tied group, but never split the shared rank.
+  let rank = 0, prevScore = null;
+  for (const p of board) {
+    if (p.score !== prevScore) { rank += 1; prevScore = p.score; }
+    p.rank = rank;
+  }
+  return board;
 }
 
 // ---- The bracket canvas (reality <-> selected person) -----------------------
+
+// Resolve a match's two real teams. R32 teams are fixed; later rounds derive
+// from the actual winners of their feeder matches — so a match whose feeders
+// are both decided shows the real matchup (e.g. CAN vs JPN) instead of "TBD",
+// even before that match itself has been played. Mirrors getMatchTeams() in
+// app.js, but sourced from actualResults rather than a person's picks.
+function actualMatchTeams(roundKey, match) {
+  if (roundKey === "R32") return [match.teamA, match.teamB];
+  const [fromA, fromB] = match.from;
+  return [actualResults[fromA] || null, actualResults[fromB] || null];
+}
 
 // One match cell. In "reality" mode it shows the actual winner; in "person"
 // mode it shows that predictor's pick, styled correct / wrong / pending.
@@ -164,20 +186,16 @@ function canvasCard(roundKey, match, side, pred) {
   const actual = actualResults[match.id];
 
   if (!pred) {
-    // Reality: highlight the actual winner; the loser shown muted; TBD if undecided.
+    // Reality: show the real matchup (resolved from feeder winners) and
+    // highlight the actual winner once it's decided; both rows are "TBD" until
+    // the feeders fill in. This keeps both teams visible for a known-but-unplayed
+    // match instead of collapsing to a single TBD row.
     const winner = actual || null;
-    if (roundKey === "R32") {
-      return `<div class="match-card">
-        <div class="team-stack">
-          ${row(match.teamA, { win: winner === match.teamA })}
-          ${row(match.teamB, { win: winner === match.teamB })}
-        </div></div>`;
-    }
-    // Later rounds in reality view: show the winner (if known) on top, else TBD.
+    const [teamA, teamB] = actualMatchTeams(roundKey, match);
     return `<div class="match-card">
       <div class="team-stack">
-        ${row(winner, { win: !!winner })}
-        ${row(null)}
+        ${row(teamA, { win: !!teamA && winner === teamA })}
+        ${row(teamB, { win: !!teamB && winner === teamB })}
       </div></div>`;
   }
 
@@ -207,10 +225,8 @@ function renderBracketCanvas() {
   const title = document.getElementById("canvas-title");
   const score = document.getElementById("canvas-score");
   if (pred) {
-    const board = computeLeaderboard();
-    const rank = board.findIndex(p => p.predictor === pred.predictor) + 1;
     title.textContent = pred.predictor;
-    score.textContent = `${pred.score} pts · ${pred.correctCount}/${pred.decidedCount || 0} correct · rank #${rank}`;
+    score.textContent = `${pred.score} pts · ${pred.correctCount}/${pred.decidedCount || 0} correct · rank #${pred.rank}`;
   } else {
     title.textContent = "Live Results";
     score.textContent = `${decidedCount()} match(es) decided`;
@@ -235,13 +251,15 @@ function renderLeaderboard() {
   }
 
   const decided = decidedCount();
-  const rows = board.map((p, i) => {
-    const medal = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+  const rows = board.map((p) => {
+    // Medal follows the (dense) rank, not list position, so everyone sharing
+    // rank 1/2/3 shares the medal styling rather than only the first listed.
+    const medal = p.rank === 1 ? "gold" : p.rank === 2 ? "silver" : p.rank === 3 ? "bronze" : "";
     const active = p.predictor === selectedPredictor ? " is-active" : "";
     return `
       <li class="lb-entry${active}" data-name="${escapeAttr(p.predictor)}">
         <button class="lb-row">
-          <span class="lb-rank ${medal}">${i + 1}</span>
+          <span class="lb-rank ${medal}">${p.rank}</span>
           <span class="lb-name">${escapeHtml(p.predictor)}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
