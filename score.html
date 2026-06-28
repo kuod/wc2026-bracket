@@ -14,8 +14,8 @@
     <div class="eyebrow">FIFA World Cup 2026 · Scoring</div>
     <h1>The <em>Leaderboard.</em></h1>
     <p class="sub">
-      Enter real results as matches finish, pull in everyone's submitted brackets, and see who's winning the pool.
-      Round of 32 picks are worth 1 point, Round of 16 worth 2, Quarterfinals 3, Semifinals 5, and the Final 8.
+      Everyone's brackets, ranked. Results update automatically as knockout matches finish —
+      click any name to see exactly where they nailed it and where it all went wrong.
     </p>
     <nav class="nav-pills">
       <a href="index.html">Make Predictions</a>
@@ -23,42 +23,42 @@
     </nav>
   </header>
 
-  <div class="panel gold-edge">
-    <h3>Step 1 — Load everyone's predictions</h3>
-    <p>Predictions are stored in Google Sheets via the Apps Script backend. The URL is pre-filled from <code>assets/config.js</code>:</p>
-    <div class="field-group" style="margin-bottom:12px;">
-      <label for="sheet-url-input">Apps Script URL</label>
-      <input type="text" id="sheet-url-input" placeholder="https://script.google.com/macros/s/…/exec">
-    </div>
-    <button class="btn btn-primary" id="load-sheet-btn">Load Predictions</button>
-    <p style="margin-top:18px;">Or paste the JSON from one or more submitted brackets directly:</p>
-    <textarea class="json-box" id="paste-json-input" placeholder='{"schema":"wc2026-prediction-v1", ...}'></textarea>
-    <button class="btn btn-ghost" id="load-paste-btn" style="margin-top:10px;">Load From Pasted JSON</button>
-    <p id="load-status" style="margin-top:12px; font-family:var(--font-mono); font-size:12.5px; color:var(--gold-bright);"></p>
+  <div class="scoring-key">
+    <span class="key-chip">R32 <b>1</b></span>
+    <span class="key-chip">R16 <b>2</b></span>
+    <span class="key-chip">QF <b>3</b></span>
+    <span class="key-chip">SF <b>5</b></span>
+    <span class="key-chip">Final <b>8</b></span>
   </div>
 
-  <div class="panel">
-    <h3>Step 2 — Enter real results</h3>
-    <p>Click the actual winner as each match finishes. This only needs to happen once per browser — it's saved locally. Later rounds unlock automatically once you've entered the winners that feed into them.</p>
-    <button class="btn btn-ghost" id="clear-results-btn">Clear All Results</button>
-  </div>
+  <p id="results-stamp" class="results-stamp"></p>
+  <p id="lb-status" class="lb-status"></p>
 
-  <div id="results-editor-root"><!-- rendered by score-app.js --></div>
+  <div id="leaderboard-root"><!-- rendered by score-app.js --></div>
 
   <div class="round-section" style="margin-top:48px;">
-    <div class="round-header"><h2>Leaderboard</h2></div>
-    <div id="leaderboard-root"></div>
+    <div class="round-header"><h2>Pool stats</h2></div>
+    <div id="pool-stats-root"></div>
   </div>
+
+  <details class="paste-fallback">
+    <summary>Brackets not loading? Paste them manually</summary>
+    <p>If automatic loading fails, paste one or more submitted bracket JSON payloads here:</p>
+    <textarea class="json-box" id="paste-json-input" placeholder='{"schema":"wc2026-prediction-v1", ...}'></textarea>
+    <button class="btn btn-ghost" id="load-paste-btn" style="margin-top:10px;">Load From Pasted JSON</button>
+  </details>
 
   <footer class="site-footer">
     <span>Scoring: R32 = 1pt · R16 = 2pt · QF = 3pt · SF = 5pt · Final = 8pt</span>
-    <span>Results entered here are stored only in this browser.</span>
+    <span>Results auto-updated from TheSportsDB.</span>
   </footer>
 
 </div>
 
 <script src="assets/config.js"></script>
 <script src="assets/bracket-data.js"></script>
+<script src="assets/results-overrides.js"></script>
+<script src="assets/results-data.js"></script>
 <script src="assets/score-app.js"></script>
 <script>initScorePage();</script>
 </body>

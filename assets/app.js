@@ -14,6 +14,7 @@ function loadDraft() {
     const parsed = JSON.parse(raw);
     picks = parsed.picks || {};
     predictorName = parsed.name || "";
+    pruneInvalidPicks();
   } catch (e) { /* ignore corrupt draft */ }
 }
 
@@ -32,9 +33,18 @@ function getMatchTeams(round, match) {
   return [picks[fromA] || null, picks[fromB] || null];
 }
 
-function matchIsReady(round, match) {
-  const [a, b] = getMatchTeams(round, match);
-  return Boolean(a) && Boolean(b);
+// Drop any saved pick that's no longer legal in the current bracket — e.g. a
+// stored R32 winner whose matchup was corrected after the draft was saved.
+// ROUNDS is walked in order, so once a feeder pick is pruned the downstream
+// match sees an empty slot and its now-orphaned pick is pruned in the same pass.
+function pruneInvalidPicks() {
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      if (!picks[m.id]) continue;
+      const [a, b] = getMatchTeams(round, m);
+      if (picks[m.id] !== a && picks[m.id] !== b) delete picks[m.id];
+    }
+  }
 }
 
 function roundCompletionCount(round) {
@@ -75,55 +85,62 @@ function selectTeam(matchId, team) {
   render();
 }
 
+function escapeAttr(s) {
+  return String(s).replace(/"/g, "&quot;");
+}
+
+// A single match card: two pickable team rows separated by a "VS" chip. The
+// card is a flat scoreboard-style block; columns of these make up the bracket.
 function renderMatch(round, match) {
   const [teamA, teamB] = getMatchTeams(round, match);
   const picked = picks[match.id];
 
-  const metaLine = round.key === "R32"
-    ? `<span class="match-id-tag">${match.id}</span><span>${match.date} · ${match.venue}</span>`
-    : `<span class="match-id-tag">${match.id}</span><span>Winners advance here</span>`;
+  const metaRight = round.key === "R32"
+    ? `${escapeHtml(match.date)} · ${escapeHtml(match.venue)}`
+    : "Winners advance here";
 
-  function teamBtnHtml(team) {
+  function teamRowHtml(team) {
     if (!team) {
-      return `<button class="team-btn empty" disabled>TBD</button>`;
+      return `<div class="team-row empty"><span class="team-name">TBD</span></div>`;
     }
     const selected = picked === team ? "selected" : "";
-    return `<button class="team-btn ${selected}" data-match="${match.id}" data-team="${escapeAttr(team)}">
-      <span class="flag">${flag(team)}</span><span>${team}</span>
-    </button>`;
+    return `<button class="team-row ${selected}" data-match="${match.id}" data-team="${escapeAttr(team)}">
+        ${flag(team)}<span class="team-name">${escapeHtml(team)}</span>
+        <span class="pick-dot" aria-hidden="true"></span>
+      </button>`;
   }
 
   return `
-    <div class="match" data-match-id="${match.id}">
-      <div class="meta">${metaLine}</div>
-      <div class="team-options">
-        ${teamBtnHtml(teamA)}
+    <div class="match-card${picked ? " is-picked" : ""}" data-match-id="${match.id}">
+      <div class="match-meta">
+        <span class="match-id-tag">${match.id}</span>
+        <span class="match-meta-detail">${metaRight}</span>
+      </div>
+      <div class="team-stack">
+        ${teamRowHtml(teamA)}
         <span class="vs-divider">VS</span>
-        ${teamBtnHtml(teamB)}
+        ${teamRowHtml(teamB)}
       </div>
     </div>
   `;
 }
 
-function escapeAttr(s) {
-  return String(s).replace(/"/g, "&quot;");
-}
-
+// One vertical column per round. Columns sit side by side in a horizontally
+// scrollable board on wide screens and stack vertically on narrow ones.
 function renderRound(round) {
   const done = roundCompletionCount(round);
   const total = round.matches.length;
-  const lockedNote = round.key === "R32"
-    ? ""
-    : `<div class="round-locked-note">Matchups fill in automatically as you pick winners in earlier rounds.</div>`;
+  const complete = done === total ? " is-complete" : "";
 
   return `
-    <section class="round-section" id="round-${round.key}">
-      <div class="round-header">
+    <section class="round-col" id="round-${round.key}" data-round="${round.key}">
+      <header class="round-col-head${complete}">
         <h2>${round.label}</h2>
-        <span class="count">${done} / ${total} picked</span>
+        <span class="count">${done} / ${total}</span>
+      </header>
+      <div class="round-col-matches">
+        ${round.matches.map(m => renderMatch(round, m)).join("")}
       </div>
-      ${lockedNote}
-      ${round.matches.map(m => renderMatch(round, m)).join("")}
     </section>
   `;
 }
@@ -131,9 +148,9 @@ function renderRound(round) {
 function render() {
   const root = document.getElementById("bracket-root");
   if (!root) return;
-  root.innerHTML = ROUNDS.map(renderRound).join("");
+  root.innerHTML = `<div class="bracket-board">${ROUNDS.map(renderRound).join("")}</div>`;
 
-  root.querySelectorAll(".team-btn[data-match]").forEach(btn => {
+  root.querySelectorAll(".team-row[data-match]").forEach(btn => {
     btn.addEventListener("click", () => {
       selectTeam(btn.getAttribute("data-match"), btn.getAttribute("data-team"));
     });

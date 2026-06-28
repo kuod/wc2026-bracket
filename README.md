@@ -2,45 +2,71 @@
 
 **[https://kuod.github.io/wc2026-bracket/](https://kuod.github.io/wc2026-bracket/)**
 
-A static, no-backend bracket predictor for the FIFA World Cup 2026 knockout stage (Round of 32 → Final). Friends fill out picks at a link you share; their picks get stored as GitHub Issues (the "backend"); you score it on a separate leaderboard page once results come in.
+A static, no-server bracket predictor for the FIFA World Cup 2026 knockout stage (Round of 32 → Final). Friends fill out picks at a link you share; picks are stored in a Google Sheet; the leaderboard scores everyone automatically as real results come in — no manual data entry.
 
 ## How it works
 
-- **`index.html`** — the prediction form. Pick a winner in every Round of 32 match; your picks automatically populate the Round of 16, Quarterfinals, Semifinals, and Final as you go. Hitting **Submit** opens a pre-filled GitHub Issue containing the picks as JSON.
-- **`score.html`** — the leaderboard. Pulls all Issues labeled `prediction` from the repo via the public GitHub API, parses out each person's picks, and scores them against results you enter by hand as games finish.
-- **`assets/bracket-data.js`** — the bracket structure (matchups, flags, round point values' structure). This is the single source of truth both pages read from.
+- **`index.html`** — the prediction form. Pick a winner in every Round of 32 match and the Round of 16, Quarterfinals, Semifinals, and Final fill themselves in as you go, just like a real bracket. **Submit** sends the picks straight to the pool's Google Sheet.
+- **`score.html`** — the leaderboard. Pulls everyone's brackets from the Sheet, scores them against real results, and ranks the pool. Click any name to see their full bracket with ✓ / ✗ / pending marks; scroll down for pool-wide stats.
+- **Results are automatic.** `tools/update_leaderboard.py` fetches real knockout results from [TheSportsDB](https://www.thesportsdb.com/) and writes them into `assets/results-data.js`. A GitHub Action runs it on a schedule during the tournament, so the live page always shows fresh scores with a "Results updated …" stamp. The browser never calls the results API itself — everyone sees the same leaderboard.
 
-No server, database, or build step required — it's plain HTML/CSS/JS, which is all GitHub Pages needs.
+No database or build step: it's plain HTML/CSS/JS, which is all GitHub Pages needs.
+
+## Repo layout
+
+```
+index.html  score.html          the two pages
+assets/
+  config.js                     SCRIPT_URL (your Apps Script web-app URL)
+  bracket-data.js               bracket structure, team→flag codes, name aliases
+  app.js                        predictions page logic
+  score-app.js                  leaderboard + scoring logic
+  results-data.js               GENERATED results (committed by the updater)
+  results-overrides.js          hand corrections (penalty shootouts, etc.)
+  style.css                     visual system
+backend/
+  apps-script.js                Google Apps Script — deploy to script.google.com
+tools/
+  update_leaderboard.py         fetches results from TheSportsDB → results-data.js
+.github/workflows/
+  update-results.yml            runs the updater on a schedule + on demand
+```
 
 ## One-time setup (you, before sharing the link)
 
-1. **Create a public GitHub repo** at `kuod/wc2026-bracket` (Issues won't work on private repos for people without write access, so keep it public — there's no sensitive data here, just picks).
-2. Push these files to the repo's root (or `docs/` if you prefer, then point Pages at that folder).
-3. `assets/app.js` is already set to:
-   ```js
-   const GITHUB_REPO = "kuod/wc2026-bracket";
-   ```
-   Double check this matches the repo you actually pushed to.
-4. **Enable Issues** on the repo (Settings → General → Features → Issues, if not already on).
-5. **Create the `prediction` label** (Issues → Labels → New label → name it exactly `prediction`). It doesn't have to be the only label, but the scoring page filters on it, so it must exist and match.
-6. **Enable GitHub Pages** (Settings → Pages → Deploy from branch → `main` → `/ (root)`). Your link will be `https://your-username.github.io/your-repo-name/`.
-7. Visit the live `index.html` once yourself to confirm the Submit button opens a correctly pre-filled GitHub Issue.
+### 1. The Google Sheet backend
+
+1. Create a Google Sheet (any blank one).
+2. Extensions → **Apps Script**, delete the placeholder, and paste in **`backend/apps-script.js`**.
+3. **Deploy → New deployment → Web app**, set *Execute as: Me* and *Who has access: Anyone*, then authorize.
+4. Copy the deployment URL (`https://script.google.com/macros/s/…/exec`) into **`assets/config.js`** as `SCRIPT_URL`.
+
+The script creates a `Predictions` sheet on first submit and stores one row per predictor (re-submits overwrite that person's row, so the latest bracket always wins).
+
+### 2. GitHub Pages
+
+Settings → Pages → Deploy from branch → `main` → `/ (root)`. Your link will be `https://your-username.github.io/your-repo-name/`.
+
+### 3. Automatic results
+
+The included GitHub Action (`.github/workflows/update-results.yml`) runs `update_leaderboard.py` on a schedule across the knockout window and commits any changed results. It needs no secrets — TheSportsDB is free and keyless. You can also trigger it any time from the **Actions** tab ("Run workflow"), or run it locally:
+
+```bash
+python3 tools/update_leaderboard.py   # stdlib only, no pip install
+```
 
 ## Sharing it
 
-Send friends: `https://kuod.github.io/wc2026-bracket/`
+Send friends `https://kuod.github.io/wc2026-bracket/`. They fill out the bracket and hit **Submit** — done. If automatic loading ever hiccups, the **"Copy JSON Instead"** button lets someone send you their picks any other way, and the leaderboard's collapsible *"paste them manually"* box accepts pasted JSON.
 
-They fill out the bracket and hit Submit, which opens a GitHub issue pre-filled with their name and JSON picks — they just need to click "Submit new issue" in GitHub (a free GitHub account is required to open an issue). If someone doesn't want a GitHub account, they can use the **"Copy JSON Instead"** button and send you the text any other way (text, email, Discord) — you can paste it into the leaderboard page's "Load From Pasted JSON" box later.
+## Scoring
 
-## Scoring as the tournament goes
+Points per round: **R32 = 1 · R16 = 2 · QF = 3 · SF = 5 · Final = 8**. Higher rounds are worth more, so the title pick matters most.
 
-On `score.html`:
-1. Paste in your repo name and click **Load Predictions from GitHub Issues** to pull everyone's picks.
-2. As each match finishes, click the actual winner in the results editor. Later rounds' matchups fill in automatically once their feeder matches are marked.
-3. The leaderboard recalculates live. Points: Round of 32 = 1, Round of 16 = 2, Quarterfinals = 3, Semifinals = 5, Final = 8.
+## Updating tournament data
 
-Results you enter are saved in your browser's local storage. If you want them to persist across browsers/devices, the simplest option is to also commit a `results.json` snapshot to the repo periodically — ask Claude to wire that up if you want it later.
+`assets/bracket-data.js` has the Round of 32 matchups, dates, venues, and flag/alias data as of the finalized draw. If a matchup is wrong by kickoff, edit `teamA`/`teamB` in `ROUND_OF_32` — flags and every later round update automatically. New teams need an entry in `TEAM_CODES` (ISO country code, e.g. `"England": "gb-eng"`).
 
-## Updating the bracket data
+## Fixing a result by hand
 
-`assets/bracket-data.js` has the confirmed Round of 32 matchups, dates, venues, and flag emojis as of June 28, 2026 (group stage just concluded). If a matchup listed as a "projection" anywhere turns out to be wrong by kickoff, just edit the `teamA`/`teamB` values in `ROUND_OF_32` — everything downstream (flags, later-round slots) updates automatically.
+TheSportsDB occasionally stores a penalty-shootout match as a bare draw without the deciding score. When that happens the match shows as "pending." To fix it, add one line to **`assets/results-overrides.js`** — e.g. `"QF-1": "Croatia"` — and commit. Overrides win over the fetched data and survive the next updater run. This is the only manual correction path; there's no in-app results editor, so the leaderboard stays the same for everyone.

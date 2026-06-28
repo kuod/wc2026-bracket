@@ -1,0 +1,58 @@
+name: Update leaderboard results
+
+# Pulls real knockout results from TheSportsDB and commits the regenerated
+# assets/results-data.js so GitHub Pages serves fresh scores. The browser never
+# calls the API itself -- this job is the single source of results.
+#
+# NOTE: GitHub's scheduled crons are best-effort and run in UTC; they routinely
+# lag 5-20+ min under load and can be skipped at the top of the hour. So we run
+# OFTEN during the knockout window (every ~20 min on match days) and offset off
+# the hour, rather than trying to hit a single exact minute. Use the "Run
+# workflow" button (workflow_dispatch) to force an immediate refresh any time.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Knockout window is late Jun -> ~Jul 19 2026 (UTC). Cron can't express a
+    # date range, so we gate by month+day-of-month and fire every 20 min during
+    # the UTC hours when matches play and finish (~late afternoon to past
+    # midnight UTC, given US kickoff times). Off-window days never run.
+    - cron: "*/20 16-23 28-30 6 *"   # Jun 28-30: R32 opening days
+    - cron: "3,23,43 0-3 29-30 6 *"  # post-midnight UTC spill from Jun 28/29 nights
+    - cron: "*/20 16-23 1-19 7 *"    # Jul 1-19: R32 tail -> Final
+    - cron: "3,23,43 0-3 1-20 7 *"   # post-midnight UTC spill from Jun 30 + Jul nights
+
+permissions:
+  contents: write   # needed to commit the regenerated results file
+
+# Never let two updater runs race on a push.
+concurrency:
+  group: update-results
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Regenerate results-data.js
+        run: python3 tools/update_leaderboard.py
+
+      - name: Commit if results changed
+        run: |
+          if git diff --quiet -- assets/results-data.js; then
+            echo "No results change; nothing to commit."
+            exit 0
+          fi
+          git config user.name "wc2026-results-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/results-data.js
+          git commit -m "Auto-update leaderboard results"
+          git push

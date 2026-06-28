@@ -1,29 +1,52 @@
 // ============================================================
-// 2026 World Cup Knockout Predictor — scoring logic
+// 2026 World Cup Knockout Predictor — leaderboard & scoring
 // ============================================================
+// This page is a PURE STATIC RENDERER. Results are not fetched here at view
+// time: tools/update_leaderboard.py bakes them into assets/results-data.js
+// (run on a schedule by a GitHub Action), and assets/results-overrides.js holds
+// any hand corrections. The browser just reads those two globals, fetches
+// everyone's predictions from the Google Sheet once, scores them, and renders.
 
 // Points per round — later rounds worth more, like a real pick'em.
 const ROUND_POINTS = { R32: 1, R16: 2, QF: 3, SF: 5, FINAL: 8 };
 
-const RESULTS_STORAGE_KEY = "wc2026-actual-results";
-
-let actualResults = {};
+let actualResults = {};   // matchId -> winning team name (decided matches only)
+let resultsMeta = null;   // the WC2026_RESULTS payload (for the "updated" stamp)
 let predictions = [];
 
-function roundForMatch(matchId) {
-  return ROUNDS.find(r => r.matches.some(m => m.id === matchId));
+// ---- Results: overrides win over embedded; nothing is fetched live ----------
+
+function loadResults() {
+  resultsMeta = (typeof window !== "undefined" && window.WC2026_RESULTS) || null;
+  const overrides = (typeof window !== "undefined" && window.WC2026_RESULT_OVERRIDES) || {};
+
+  const validMatchIds = new Set(ROUNDS.flatMap(r => r.matches.map(m => m.id)));
+
+  const out = {};
+  if (resultsMeta && resultsMeta.results) {
+    for (const [matchId, r] of Object.entries(resultsMeta.results)) {
+      if (r && r.winner) out[matchId] = r.winner;
+    }
+  }
+  // Audited manual corrections take precedence over the embedded feed. Ignore
+  // typos (unknown match id or a winner not in TEAM_CODES) so a bad override
+  // can't silently inflate the "matches decided" count without scoring anyone.
+  for (const [matchId, winner] of Object.entries(overrides)) {
+    if (!winner) continue;
+    if (!validMatchIds.has(matchId) || !TEAM_CODES[winner]) {
+      console.warn(`Ignoring invalid result override: ${matchId} → ${winner}`);
+      continue;
+    }
+    out[matchId] = winner;
+  }
+  actualResults = out;
 }
 
-function loadLocalResults() {
-  try {
-    const raw = localStorage.getItem(RESULTS_STORAGE_KEY);
-    if (raw) actualResults = JSON.parse(raw);
-  } catch (e) { /* ignore */ }
+function decidedCount() {
+  return Object.keys(actualResults).length;
 }
 
-function saveLocalResults() {
-  localStorage.setItem(RESULTS_STORAGE_KEY, JSON.stringify(actualResults));
-}
+// ---- Predictions: auto-fetch from the Sheet; paste box as fallback ----------
 
 async function fetchPredictionsFromSheet(url) {
   const res = await fetch(url);
@@ -32,11 +55,9 @@ async function fetchPredictionsFromSheet(url) {
   if (data.error) throw new Error(data.error);
 
   const MATCH_IDS = ROUNDS.flatMap(r => r.matches.map(m => m.id));
-
   return (data.predictions || []).map(row => ({
     predictor: row.predictor || "Unknown",
     submittedAt: row.submittedAt || "",
-    issueUrl: null,
     picks: Object.fromEntries(
       MATCH_IDS.map(id => [id, row[id] || undefined]).filter(([, v]) => v)
     )
@@ -50,8 +71,7 @@ function loadPredictionsFromPastedJson(text) {
       out.push({
         predictor: obj.predictor || "Unknown",
         picks: obj.picks || {},
-        submittedAt: obj.submittedAt,
-        issueUrl: null
+        submittedAt: obj.submittedAt
       });
     }
   };
@@ -67,80 +87,56 @@ function loadPredictionsFromPastedJson(text) {
   return out;
 }
 
+// ---- Scoring ----------------------------------------------------------------
+
+// A pick's state against reality: "correct", "wrong", or "pending" (match not
+// decided yet, or the pick references a team that never reached this slot).
+function pickState(matchId, guess) {
+  const actual = actualResults[matchId];
+  if (!guess || !actual) return "pending";
+  return guess === actual ? "correct" : "wrong";
+}
+
 function scorePrediction(pred) {
   let score = 0;
   const breakdown = [];
+  const roundSubtotals = {};
   for (const round of ROUNDS) {
+    let roundCorrect = 0, roundDecided = 0;
     for (const match of round.matches) {
       const guess = pred.picks[match.id];
       const actual = actualResults[match.id];
-      if (!guess || !actual) continue;
-      const correct = guess === actual;
-      if (correct) score += ROUND_POINTS[round.key];
-      breakdown.push({ matchId: match.id, round: round.key, guess, actual, correct });
+      const state = pickState(match.id, guess);
+      if (actual) roundDecided++;
+      if (state === "correct") {
+        score += ROUND_POINTS[round.key];
+        roundCorrect++;
+      }
+      breakdown.push({ matchId: match.id, round: round.key, guess, actual, state });
     }
+    roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length };
   }
-  return { score, breakdown };
+  return { score, breakdown, roundSubtotals };
 }
 
 function computeLeaderboard() {
   return predictions
     .map(pred => {
-      const { score, breakdown } = scorePrediction(pred);
-      const correctCount = breakdown.filter(b => b.correct).length;
-      const scoredCount = breakdown.length;
-      return { ...pred, score, breakdown, correctCount, scoredCount };
+      const { score, breakdown, roundSubtotals } = scorePrediction(pred);
+      const correctCount = breakdown.filter(b => b.state === "correct").length;
+      const decidedCount = breakdown.filter(b => b.actual).length;
+      return { ...pred, score, breakdown, roundSubtotals, correctCount, decidedCount,
+               champion: pred.picks["FINAL"] || null };
     })
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => b.score - a.score || b.correctCount - a.correctCount
+                    || a.predictor.localeCompare(b.predictor));
 }
 
-function renderResultsEditor() {
-  const root = document.getElementById("results-editor-root");
-  if (!root) return;
-  root.innerHTML = ROUNDS.map(round => `
-    <div class="round-section" style="margin-top:28px;">
-      <div class="round-header"><h2>${round.label}</h2></div>
-      ${round.matches.map(match => {
-        const teams = match.from
-          ? [actualResults[match.from[0]] || null, actualResults[match.from[1]] || null]
-          : [match.teamA, match.teamB];
-        const current = actualResults[match.id] || "";
-        return `
-          <div class="match" data-match-id="${match.id}">
-            <div class="meta"><span class="match-id-tag">${match.id}</span><span>Winner</span></div>
-            <div class="team-options">
-              ${renderResultBtn(match.id, teams[0], current)}
-              <span class="vs-divider">VS</span>
-              ${renderResultBtn(match.id, teams[1], current)}
-            </div>
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `).join("");
+// ---- Rendering: ranked list + expandable per-person bracket -----------------
 
-  root.querySelectorAll(".team-btn[data-match]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const matchId = btn.getAttribute("data-match");
-      const team = btn.getAttribute("data-team");
-      if (actualResults[matchId] === team) {
-        delete actualResults[matchId];
-      } else {
-        actualResults[matchId] = team;
-      }
-      saveLocalResults();
-      renderResultsEditor();
-      renderLeaderboard();
-    });
-  });
-}
-
-function renderResultBtn(matchId, team, current) {
-  if (!team) return `<button class="team-btn empty" disabled>TBD</button>`;
-  const selected = current === team ? "selected" : "";
-  return `<button class="team-btn ${selected}" data-match="${matchId}" data-team="${team.replace(/"/g,'&quot;')}">
-    <span class="flag">${flag(team)}</span><span>${escapeHtml(team)}</span>
-  </button>`;
+function teamCell(team) {
+  if (!team) return `<span class="lb-team muted">—</span>`;
+  return `<span class="lb-team">${flag(team)}<span>${escapeHtml(team)}</span></span>`;
 }
 
 function renderLeaderboard() {
@@ -149,98 +145,266 @@ function renderLeaderboard() {
   const board = computeLeaderboard();
 
   if (board.length === 0) {
-    root.innerHTML = `<p style="color:rgba(246,243,234,0.6); font-size:14px;">No predictions loaded yet. Click "Load Predictions" above.</p>`;
+    root.innerHTML = `<p class="lb-empty">No brackets loaded yet.</p>`;
     return;
   }
 
-  root.innerHTML = `
-    <table class="leaderboard">
-      <thead>
-        <tr><th>Rank</th><th>Predictor</th><th>Score</th><th>Correct picks</th><th></th></tr>
-      </thead>
-      <tbody>
-        ${board.map((p, i) => `
-          <tr>
-            <td class="rank">${i + 1}</td>
-            <td>${escapeHtml(p.predictor)}</td>
-            <td class="score">${p.score} pts</td>
-            <td>${p.correctCount} / ${p.scoredCount || "—"}</td>
-            <td><button class="btn btn-ghost" style="padding:4px 10px; font-size:11px;" onclick="toggleDetail(${i})">Details</button></td>
-          </tr>
-          <tr id="detail-${i}" style="display:none;">
-            <td colspan="5">
-              ${renderDetailRows(p.breakdown)}
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
+  const decided = decidedCount();
+  const rows = board.map((p, i) => {
+    const medal = i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : "";
+    return `
+      <li class="lb-entry" data-idx="${i}">
+        <button class="lb-row" aria-expanded="false">
+          <span class="lb-rank ${medal}">${i + 1}</span>
+          <span class="lb-name">${escapeHtml(p.predictor)}</span>
+          <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
+          <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
+          <span class="lb-score">${p.score}<span class="muted">pts</span></span>
+          <span class="lb-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="lb-detail" hidden>${renderPersonBracket(p)}</div>
+      </li>
+    `;
+  }).join("");
+
+  root.innerHTML = `<ol class="lb-list">${rows}</ol>`;
+
+  root.querySelectorAll(".lb-row").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const entry = btn.closest(".lb-entry");
+      const detail = entry.querySelector(".lb-detail");
+      const open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!open));
+      detail.hidden = open;
+      entry.classList.toggle("is-open", !open);
+    });
+  });
 }
 
-function renderDetailRows(breakdown) {
-  if (breakdown.length === 0) return `<span style="color:rgba(246,243,234,0.5); font-size:13px;">No matches scored yet.</span>`;
-  return `
-    <div style="display:flex; flex-direction:column; gap:4px; padding:8px 0;">
-      ${breakdown.map(b => `
-        <div style="font-family:var(--font-mono); font-size:12px; display:flex; gap:10px; color:${b.correct ? 'var(--gold-bright)' : 'rgba(246,243,234,0.45)'};">
-          <span style="width:60px;">${b.matchId}</span>
-          <span style="width:24px;">${b.correct ? "✓" : "✗"}</span>
-          <span>picked ${flag(b.guess)} ${escapeHtml(b.guess)} — actual ${flag(b.actual)} ${escapeHtml(b.actual)}</span>
+// One person's full bracket in round columns, each pick marked vs reality.
+function renderPersonBracket(p) {
+  const mark = { correct: "✓", wrong: "✗", pending: "·" };
+  const cols = ROUNDS.map(round => {
+    const sub = p.roundSubtotals[round.key];
+    const cards = round.matches.map(match => {
+      const guess = p.picks[match.id];
+      const actual = actualResults[match.id];
+      const state = pickState(match.id, guess);
+      const showActual = state === "wrong" && actual;
+      return `
+        <div class="pb-pick pb-${state}">
+          <span class="pb-mark">${mark[state]}</span>
+          <span class="pb-guess">${guess ? teamCell(guess) : `<span class="muted">no pick</span>`}</span>
+          ${showActual ? `<span class="pb-actual">→ ${teamCell(actual)}</span>` : ""}
         </div>
-      `).join("")}
+      `;
+    }).join("");
+    return `
+      <div class="pb-col">
+        <div class="pb-col-head">
+          <span>${round.label}</span>
+          <span class="muted">${sub.correct}/${sub.decided || 0}</span>
+        </div>
+        ${cards}
+      </div>
+    `;
+  }).join("");
+  return `<div class="pb-board">${cols}</div>`;
+}
+
+// ---- Pool stats -------------------------------------------------------------
+
+function tally(matchId) {
+  // Returns [{team, count, share}] sorted desc for one match across all picks.
+  const counts = {};
+  let n = 0;
+  for (const p of predictions) {
+    const g = p.picks[matchId];
+    if (!g) continue;
+    counts[g] = (counts[g] || 0) + 1;
+    n++;
+  }
+  return Object.entries(counts)
+    .map(([team, count]) => ({ team, count, share: n ? count / n : 0 }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function renderPoolStats() {
+  const root = document.getElementById("pool-stats-root");
+  if (!root) return;
+  if (predictions.length === 0) { root.innerHTML = ""; return; }
+
+  const n = predictions.length;
+
+  // Champion distribution (FINAL pick).
+  const champs = tally("FINAL");
+  const champBars = champs.map(c => statBar(c.team, c.count, c.share)).join("") ||
+    `<p class="muted">No champion picks yet.</p>`;
+
+  // Most common predicted Final matchup (unordered pair of FINAL feeders).
+  const finalMatch = ROUNDS.find(r => r.key === "FINAL").matches[0];
+  const finalPairs = {};
+  for (const p of predictions) {
+    const a = p.picks[finalMatch.from[0]];
+    const b = p.picks[finalMatch.from[1]];
+    if (!a || !b) continue;
+    const key = [a, b].sort().join(" ‹vs› ");
+    finalPairs[key] = (finalPairs[key] || 0) + 1;
+  }
+  const topFinal = Object.entries(finalPairs).sort((x, y) => y[1] - x[1])[0];
+  const finalHtml = topFinal
+    ? `<div class="stat-line"><strong>${escapeHtml(topFinal[0])}</strong><span class="muted">${topFinal[1]} of ${n}</span></div>`
+    : `<p class="muted">Not enough finalist picks yet.</p>`;
+
+  // Most divisive R32 match — closest to an even split (entropy-ish: min top share).
+  let divisive = null;
+  for (const m of ROUNDS[0].matches) {
+    const t = tally(m.id);
+    if (t.length < 2) continue;
+    const topShare = t[0].share;
+    if (!divisive || topShare < divisive.topShare) divisive = { match: m, t, topShare };
+  }
+  const divisiveHtml = divisive
+    ? `<div class="stat-sub muted">${divisive.match.id}</div>` +
+      divisive.t.map(c => statBar(c.team, c.count, c.share)).join("")
+    : `<p class="muted">No picks yet.</p>`;
+
+  // Contrarian-correct: a correct pick that ≤15% of the pool made.
+  const contrarian = [];
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      const actual = actualResults[m.id];
+      if (!actual) continue;
+      const t = tally(m.id);
+      const winnerStat = t.find(x => x.team === actual);
+      if (winnerStat && winnerStat.share > 0 && winnerStat.share <= 0.15) {
+        for (const p of predictions) {
+          if (p.picks[m.id] === actual) {
+            contrarian.push({ who: p.predictor, team: actual, matchId: m.id,
+                              count: winnerStat.count });
+          }
+        }
+      }
+    }
+  }
+  const contrarianHtml = contrarian.length
+    ? contrarian.slice(0, 8).map(c =>
+        `<div class="stat-line"><span>${escapeHtml(c.who)} called ${flag(c.team)} <strong>${escapeHtml(c.team)}</strong></span><span class="muted">${c.matchId} · ${c.count} of ${n}</span></div>`
+      ).join("")
+    : `<p class="muted">No bold correct calls yet — check back as results come in.</p>`;
+
+  // Score distribution summary.
+  const board = computeLeaderboard();
+  const scores = board.map(p => p.score).sort((a, b) => a - b);
+  const avg = scores.length ? (scores.reduce((s, x) => s + x, 0) / scores.length) : 0;
+  const median = scores.length
+    ? (scores.length % 2 ? scores[(scores.length - 1) / 2]
+       : (scores[scores.length / 2 - 1] + scores[scores.length / 2]) / 2)
+    : 0;
+
+  root.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card">
+        <h3>Who they're backing for the title</h3>
+        ${champBars}
+      </div>
+      <div class="stat-card">
+        <h3>Most-predicted Final</h3>
+        ${finalHtml}
+        <h3 style="margin-top:18px;">Most divisive opener</h3>
+        ${divisiveHtml}
+      </div>
+      <div class="stat-card">
+        <h3>Boldest correct calls</h3>
+        ${contrarianHtml}
+      </div>
+      <div class="stat-card stat-card-mini">
+        <h3>Pool at a glance</h3>
+        <div class="stat-line"><span>Brackets in</span><strong>${n}</strong></div>
+        <div class="stat-line"><span>Matches decided</span><strong>${decidedCount()}</strong></div>
+        <div class="stat-line"><span>Average score</span><strong>${avg.toFixed(1)}</strong></div>
+        <div class="stat-line"><span>Median score</span><strong>${median}</strong></div>
+        <div class="stat-line"><span>Top score</span><strong>${board.length ? board[0].score : 0}</strong></div>
+      </div>
     </div>
   `;
 }
 
-function toggleDetail(i) {
-  const row = document.getElementById(`detail-${i}`);
-  if (row) row.style.display = row.style.display === "none" ? "table-row" : "none";
+function statBar(team, count, share) {
+  const pct = Math.round(share * 100);
+  return `
+    <div class="stat-bar">
+      <span class="stat-bar-label">${flag(team)}<span>${escapeHtml(team)}</span></span>
+      <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${pct}%"></span></span>
+      <span class="stat-bar-val">${pct}% <span class="muted">(${count})</span></span>
+    </div>
+  `;
 }
 
+// ---- Status stamp -----------------------------------------------------------
+
+function renderStatus(message, kind) {
+  const el = document.getElementById("lb-status");
+  if (!el) return;
+  el.textContent = message || "";
+  // Keep the base .lb-status styling; layer the ok/err color modifier on top.
+  el.className = kind ? `lb-status lb-status-${kind}` : "lb-status";
+}
+
+function renderUpdatedStamp() {
+  const el = document.getElementById("results-stamp");
+  if (!el) return;
+  const decided = decidedCount();
+  if (!resultsMeta || !resultsMeta.generatedAt) {
+    el.textContent = decided
+      ? `Showing ${decided} result(s).`
+      : "No results in yet — the bracket fills in as knockout matches finish.";
+    return;
+  }
+  const when = new Date(resultsMeta.generatedAt);
+  const nice = isNaN(when) ? resultsMeta.generatedAt
+    : when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  el.textContent = `Results updated ${nice} · ${decided} match(es) decided`;
+}
+
+// ---- Init -------------------------------------------------------------------
+
 async function initScorePage() {
-  loadLocalResults();
-  renderResultsEditor();
+  loadResults();
+  renderUpdatedStamp();
   renderLeaderboard();
+  renderPoolStats();
 
-  // Pre-fill the URL input from config if available.
-  const urlInput = document.getElementById("sheet-url-input");
-  if (urlInput && SCRIPT_URL) urlInput.value = SCRIPT_URL;
+  const refresh = () => { renderLeaderboard(); renderPoolStats(); renderUpdatedStamp(); };
 
-  document.getElementById("load-sheet-btn").addEventListener("click", async () => {
-    const url = (urlInput ? urlInput.value.trim() : SCRIPT_URL);
-    const statusEl = document.getElementById("load-status");
-    if (!url) { statusEl.textContent = "Enter a script URL first, or set SCRIPT_URL in assets/config.js."; return; }
-    statusEl.textContent = "Loading predictions from Google Sheet…";
+  // Auto-load everyone's predictions from the Google Sheet.
+  if (typeof SCRIPT_URL === "string" && SCRIPT_URL) {
+    renderStatus("Loading brackets…");
     try {
-      predictions = await fetchPredictionsFromSheet(url);
-      statusEl.textContent = `Loaded ${predictions.length} prediction(s).`;
-      renderLeaderboard();
+      predictions = await fetchPredictionsFromSheet(SCRIPT_URL);
+      renderStatus(`Loaded ${predictions.length} bracket(s).`, "ok");
+      refresh();
     } catch (e) {
-      statusEl.textContent = `Couldn't load predictions: ${e.message}`;
+      renderStatus(`Couldn't load brackets automatically (${e.message}). Paste JSON below instead.`, "err");
     }
-  });
+  } else {
+    renderStatus("No Sheet URL configured — paste bracket JSON below to score.", "err");
+  }
 
-  document.getElementById("load-paste-btn").addEventListener("click", () => {
-    const text = document.getElementById("paste-json-input").value;
-    const statusEl = document.getElementById("load-status");
-    try {
-      const fromPaste = loadPredictionsFromPastedJson(text);
-      const byName = new Map(predictions.map(p => [p.predictor, p]));
-      fromPaste.forEach(p => byName.set(p.predictor, p));
-      predictions = Array.from(byName.values());
-      statusEl.textContent = `Loaded ${fromPaste.length} prediction(s) from pasted JSON. Total: ${predictions.length}.`;
-      renderLeaderboard();
-    } catch (e) {
-      statusEl.textContent = e.message;
-    }
-  });
-
-  document.getElementById("clear-results-btn").addEventListener("click", () => {
-    if (!confirm("Clear all entered match results?")) return;
-    actualResults = {};
-    saveLocalResults();
-    renderResultsEditor();
-    renderLeaderboard();
-  });
+  const pasteBtn = document.getElementById("load-paste-btn");
+  if (pasteBtn) {
+    pasteBtn.addEventListener("click", () => {
+      const text = document.getElementById("paste-json-input").value;
+      try {
+        const fromPaste = loadPredictionsFromPastedJson(text);
+        const byName = new Map(predictions.map(p => [p.predictor, p]));
+        fromPaste.forEach(p => byName.set(p.predictor, p));
+        predictions = Array.from(byName.values());
+        renderStatus(`Added ${fromPaste.length} bracket(s) from pasted JSON. Total: ${predictions.length}.`, "ok");
+        refresh();
+      } catch (e) {
+        renderStatus(e.message, "err");
+      }
+    });
+  }
 }

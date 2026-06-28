@@ -1,0 +1,10 @@
+CLAUDE.md
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local testing / tooling artifacts
+.playwright-mcp/
+*.png
+codex-session.txt

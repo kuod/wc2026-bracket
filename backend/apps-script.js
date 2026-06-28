@@ -43,30 +43,43 @@ function doPost(e) {
       return respond({ error: "Invalid schema" });
     }
     const sheet = getSheet();
+    const row = buildRow(payload);
+    const predictorCell = row[1];   // sanitized/trimmed name, matching what we store
 
     // Overwrite any existing row for this predictor so re-submits don't stack up.
+    // Compare against the sanitized name so the upsert key matches the stored cell.
     const data = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
-      if (data[i][1] === payload.predictor) {
-        const row = buildRow(payload);
+      if (data[i][1] === predictorCell) {
         sheet.getRange(i + 1, 1, 1, row.length).setValues([row]);
         return respond({ ok: true, updated: true });
       }
     }
 
-    sheet.appendRow(buildRow(payload));
+    sheet.appendRow(row);
     return respond({ ok: true, updated: false });
   } catch (err) {
     return respond({ error: err.toString() });
   }
 }
 
+// Neutralize spreadsheet formula injection: a cell beginning with =, +, -, @,
+// or a leading tab/carriage return is interpreted as a formula by Sheets (and
+// by Excel if someone exports). Prefix those with an apostrophe so the value is
+// always stored as literal text. Picks are canonical team names and never start
+// with these, but a hand-crafted POST could smuggle one in.
+function sanitizeCell(value) {
+  const s = String(value == null ? "" : value).trim();
+  return /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+}
+
 function buildRow(payload) {
+  const picks = payload.picks || {};
   return [
     new Date().toISOString(),
-    payload.predictor || "Unknown",
-    payload.submittedAt || "",
-    ...MATCH_IDS.map(id => payload.picks[id] || "")
+    sanitizeCell(payload.predictor || "Unknown"),
+    sanitizeCell(payload.submittedAt || ""),
+    ...MATCH_IDS.map(id => sanitizeCell(picks[id] || ""))
   ];
 }
 
