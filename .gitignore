@@ -7,4 +7,6 @@ __pycache__/
 # Local testing / tooling artifacts
 .playwright-mcp/
 *.png
+*.jpg
+*.jpeg
 codex-session.txt
