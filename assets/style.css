@@ -755,7 +755,7 @@ body.on-leaderboard { overflow: auto; }
 @container (min-width: 454px) {
   .stat-card-wide { grid-column: span 2; }
 }
-.continent-map { position: relative; width: 100%; aspect-ratio: 2 / 1; margin-bottom: 10px; }
+.continent-map { position: relative; width: 100%; aspect-ratio: 626 / 440; margin-bottom: 10px; }
 .continent-map img { width: 100%; height: 100%; object-fit: contain; opacity: 0.5; }
 .cont-chip {
   position: absolute;

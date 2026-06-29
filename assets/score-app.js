@@ -290,7 +290,8 @@ function renderBracketCanvas() {
 
 function teamCell(team) {
   if (!team) return `<span class="lb-team muted">—</span>`;
-  return `<span class="lb-team">${flag(team)}<span>${escapeHtml(team)}</span></span>`;
+  // 3-letter code to match the bracket; full name in the tooltip.
+  return `<span class="lb-team" title="${escapeAttr(team)}">${flag(team)}<span>${escapeHtml(shortCode(team))}</span></span>`;
 }
 
 function renderLeaderboard() {
@@ -375,15 +376,19 @@ function renderPoolStats() {
     const a = p.picks[finalMatch.from[0]];
     const b = p.picks[finalMatch.from[1]];
     if (!a || !b) continue;
-    const key = [a, b].sort().join(" ‹vs› ");
-    finalPairs[key] = (finalPairs[key] || 0) + 1;
+    // Key by the sorted full-name pair (counting is unaffected); keep the two
+    // names so we can render 3-letter codes while tooltipping the full pair.
+    const [n1, n2] = [a, b].sort();
+    const key = `${n1} ‹vs› ${n2}`;
+    if (!finalPairs[key]) finalPairs[key] = { count: 0, a: n1, b: n2 };
+    finalPairs[key].count += 1;
   }
   const topFinals = Object.entries(finalPairs)
-    .sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]))   // count, then pair name
+    .sort((x, y) => y[1].count - x[1].count || x[0].localeCompare(y[0]))   // count, then pair name
     .slice(0, 4);
   const finalHtml = topFinals.length
-    ? topFinals.map(([pair, count]) =>
-        `<div class="stat-line"><strong>${escapeHtml(pair)}</strong><span class="muted">${count} of ${n}</span></div>`
+    ? topFinals.map(([pair, info]) =>
+        `<div class="stat-line"><strong title="${escapeAttr(pair)}">${escapeHtml(shortCode(info.a))} ‹vs› ${escapeHtml(shortCode(info.b))}</strong><span class="muted">${info.count} of ${n}</span></div>`
       ).join("")
     : `<p class="muted">Not enough finalist picks yet.</p>`;
 
@@ -419,7 +424,7 @@ function renderPoolStats() {
   }
   const contrarianHtml = contrarian.length
     ? contrarian.slice(0, 6).map(c =>
-        `<div class="stat-line"><span>${escapeHtml(c.who)} called ${flag(c.team)} <strong>${escapeHtml(c.team)}</strong></span><span class="muted">${c.matchId}</span></div>`
+        `<div class="stat-line"><span>${escapeHtml(c.who)} called ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
       ).join("")
     : `<p class="muted">No bold correct calls yet — check back as results come in.</p>`;
 
@@ -442,7 +447,7 @@ function renderPoolStats() {
   lone.sort((a, b) => roundOrder[b.round] - roundOrder[a.round]);
   const loneHtml = lone.length
     ? lone.slice(0, 6).map(c =>
-        `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong>${escapeHtml(c.team)}</strong></span><span class="muted">${c.matchId}</span></div>`
+        `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
       ).join("")
     : `<p class="muted">No solo picks — the pool agrees so far.</p>`;
 
@@ -477,14 +482,15 @@ function renderPoolStats() {
   const contSorted = Object.entries(contCounts)
     .map(([name, count]) => ({ name, count, share: count / contTotal }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  // Each continent's centroid on the world-mini.svg viewBox, as map %.
+  // Each continent's centroid on the world-mini.svg (dot-matrix) viewBox, as
+  // map %. Measured from the generated dot positions, not eyeballed.
   const CONTINENT_POS = {
-    "North America": { left: 22, top: 25 },
-    "South America": { left: 33, top: 58 },
-    "Europe":        { left: 54, top: 21 },
-    "Africa":        { left: 56, top: 50 },
-    "Asia":          { left: 75, top: 25 },
-    "Oceania":       { left: 88, top: 64 }
+    "North America": { left: 26, top: 29 },
+    "South America": { left: 31, top: 71 },
+    "Europe":        { left: 53, top: 24 },
+    "Africa":        { left: 55, top: 56 },
+    "Asia":          { left: 73, top: 41 },
+    "Oceania":       { left: 83, top: 77 }
   };
   const continentHtml = contTotal
     ? `<div class="continent-map">
@@ -538,9 +544,10 @@ function renderPoolStats() {
 
 function statBar(team, count, share) {
   const pct = Math.round(share * 100);
+  // 3-letter code to match the bracket; full name in the label's tooltip.
   return `
     <div class="stat-bar">
-      <span class="stat-bar-label">${flag(team)}<span>${escapeHtml(team)}</span></span>
+      <span class="stat-bar-label" title="${escapeAttr(team)}">${flag(team)}<span>${escapeHtml(shortCode(team))}</span></span>
       <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${pct}%"></span></span>
       <span class="stat-bar-val">${pct}% <span class="muted">(${count})</span></span>
     </div>
