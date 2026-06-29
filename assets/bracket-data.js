@@ -282,10 +282,13 @@ function renderSymmetricBracket({ renderCard }) {
     .map((t, i) => `<span class="sym-label" style="grid-column:${i + 1};">${t}</span>`)
     .join("");
 
-  // The official high-res WC2026 vector logo floats in the centre column, above
-  // the Final, filling the natural empty space at the heart of the bracket.
+  // The official high-res WC2026 vector logo floats in the centre column,
+  // spanning only the TOP HALF of the grid (rows is always even). Centred within
+  // that span, its midpoint lands at ~25% of the column height — halfway between
+  // the top "Final" label and the centred Final card — and it can't reach down
+  // far enough to overlap the Final box.
   const emblem =
-    `<div class="sym-emblem" aria-hidden="true" style="grid-column:5;grid-row:1/${rows + 1};">` +
+    `<div class="sym-emblem" aria-hidden="true" style="grid-column:5;grid-row:1/${rows / 2 + 1};">` +
     `<img src="img/fifa-world-cup-2026-4.svg" alt="" width="200" height="220"></div>`;
 
   return `<div class="sym-labels">${labelStrip}</div>` +

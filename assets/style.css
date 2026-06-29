@@ -285,14 +285,14 @@ img.flag {
   min-height: 0;
 }
 
-/* WC2026 emblem in the centre column. Spans all rows of the centre column and
-   sits behind the Final card; pinned to the upper region so it doesn't collide
-   with the centred Final. Decorative only (pointer-events:none). */
+/* WC2026 emblem in the centre column. Spans only the top half of the centre
+   column (set inline by the renderer) and centres within it, so its midpoint
+   sits at ~25% of the column height — halfway between the top "Final" label and
+   the centred Final card, with no overlap. Decorative only (pointer-events:none). */
 .sym-emblem {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding-top: 4%;
   min-width: 0; min-height: 0;
   pointer-events: none;
   z-index: 0;
