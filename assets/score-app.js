@@ -485,12 +485,12 @@ function renderPoolStats() {
   // Each continent's centroid on the world-mini.svg (dot-matrix) viewBox, as
   // map %. Measured from the generated dot positions, not eyeballed.
   const CONTINENT_POS = {
-    "North America": { left: 26, top: 29 },
-    "South America": { left: 31, top: 71 },
-    "Europe":        { left: 53, top: 24 },
-    "Africa":        { left: 55, top: 56 },
-    "Asia":          { left: 73, top: 41 },
-    "Oceania":       { left: 83, top: 77 }
+    "North America": { left: 19, top: 28 },
+    "South America": { left: 29, top: 73 },
+    "Europe":        { left: 54, top: 25 },
+    "Africa":        { left: 55, top: 55 },
+    "Asia":          { left: 75, top: 30 },
+    "Oceania":       { left: 86, top: 77 }
   };
   const continentHtml = contTotal
     ? `<div class="continent-map">
