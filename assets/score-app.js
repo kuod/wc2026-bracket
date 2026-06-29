@@ -464,6 +464,40 @@ function renderPoolStats() {
   }
   const chalk = shareN ? Math.round((shareSum / shareN) * 100) : 0;
 
+  // 7) Title picks by continent — fold every champion (FINAL) pick into its
+  //    geographic continent, then float each share over a mini world map (and
+  //    list them below as a fallback read). Shares sum to 100% of resolved picks.
+  const contCounts = {};
+  for (const p of predictions) {
+    const c = continentOf(p.picks["FINAL"]);
+    if (c) contCounts[c] = (contCounts[c] || 0) + 1;
+  }
+  const contTotal = Object.values(contCounts).reduce((s, x) => s + x, 0);
+  // Sorted desc by count, then name — deterministic regardless of pool order.
+  const contSorted = Object.entries(contCounts)
+    .map(([name, count]) => ({ name, count, share: count / contTotal }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  // Each continent's centroid on the world-mini.svg viewBox, as map %.
+  const CONTINENT_POS = {
+    "North America": { left: 22, top: 25 },
+    "South America": { left: 33, top: 58 },
+    "Europe":        { left: 54, top: 21 },
+    "Africa":        { left: 56, top: 50 },
+    "Asia":          { left: 75, top: 25 },
+    "Oceania":       { left: 88, top: 64 }
+  };
+  const continentHtml = contTotal
+    ? `<div class="continent-map">
+         <img src="img/world-mini.svg" alt="" aria-hidden="true">
+         ${contSorted.map((c, i) => {
+           const pos = CONTINENT_POS[c.name] || { left: 50, top: 50 };
+           const pct = Math.round(c.share * 100);
+           return `<span class="cont-chip${i === 0 ? " leader" : ""}" style="left:${pos.left}%;top:${pos.top}%;" title="${escapeAttr(c.name)}">${continentGlyph(c.name)}<b>${pct}%</b></span>`;
+         }).join("")}
+       </div>
+       ${contSorted.map(c => continentBar(c.name, c.count, c.share)).join("")}`
+    : `<p class="muted">No title picks yet.</p>`;
+
   root.innerHTML = `
     <div class="stat-grid">
       <div class="stat-card">
@@ -494,6 +528,10 @@ function renderPoolStats() {
         <div class="stat-line"><span>Median / top</span><strong>${median} / ${board.length ? board[0].score : 0}</strong></div>
         <div class="stat-line"><span>Chalk score</span><strong>${chalk}%</strong></div>
       </div>
+      <div class="stat-card stat-card-wide">
+        <h3>Title picks by continent</h3>
+        ${continentHtml}
+      </div>
     </div>
   `;
 }
@@ -503,6 +541,18 @@ function statBar(team, count, share) {
   return `
     <div class="stat-bar">
       <span class="stat-bar-label">${flag(team)}<span>${escapeHtml(team)}</span></span>
+      <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${pct}%"></span></span>
+      <span class="stat-bar-val">${pct}% <span class="muted">(${count})</span></span>
+    </div>
+  `;
+}
+
+// Like statBar, but for a continent: an inline-SVG globe glyph instead of a flag.
+function continentBar(name, count, share) {
+  const pct = Math.round(share * 100);
+  return `
+    <div class="stat-bar">
+      <span class="stat-bar-label">${continentGlyph(name)}<span>${escapeHtml(name)}</span></span>
       <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${pct}%"></span></span>
       <span class="stat-bar-val">${pct}% <span class="muted">(${count})</span></span>
     </div>

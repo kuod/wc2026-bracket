@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 500" role="img" aria-label="World map">
+  <!-- Stylized, low-detail world map for the "Title picks by continent" stat
+       card. Equirectangular (lon→x, lat→y), so the overlay percentage chips can
+       be placed by geographic centroid. Decorative; chalk fills, gold hairline
+       strokes, transparent background. Continent blobs are deliberately simple
+       silhouettes, not accurate coastlines. -->
+  <g fill="#f6f3ea" fill-opacity="0.16" stroke="#d4a843" stroke-opacity="0.5" stroke-width="2" stroke-linejoin="round">
+    <!-- North America (centroid ~222,125) -->
+    <path d="M120 70 Q180 40 250 55 L320 70 Q330 110 300 140 L290 175 Q250 200 230 175 L210 150 Q175 160 165 130 L150 110 Q120 105 120 70 Z"/>
+    <!-- Greenland nub -->
+    <path d="M345 45 Q380 40 385 70 Q370 95 345 85 Q335 65 345 45 Z"/>
+    <!-- South America (centroid ~333,292) -->
+    <path d="M300 225 Q345 215 370 245 L375 290 Q360 345 335 390 Q315 410 305 380 L300 320 Q278 290 290 260 Q288 235 300 225 Z"/>
+    <!-- Europe (centroid ~542,106) -->
+    <path d="M495 70 Q545 55 580 78 Q585 110 560 130 L530 145 Q500 140 495 115 Q480 90 495 70 Z"/>
+    <!-- Africa (centroid ~556,250) -->
+    <path d="M505 165 Q560 150 615 170 Q635 205 615 245 L600 300 Q575 350 550 355 Q525 345 525 305 L510 250 Q490 210 505 165 Z"/>
+    <!-- Asia (centroid ~750,125) -->
+    <path d="M600 70 Q720 40 860 65 Q905 90 880 130 L840 165 Q780 185 740 165 L690 175 Q645 165 640 130 Q605 110 600 70 Z"/>
+    <!-- India peninsula -->
+    <path d="M700 175 Q730 175 730 205 Q715 235 700 220 Q688 195 700 175 Z"/>
+    <!-- Australia / Oceania (centroid ~875,319) -->
+    <path d="M820 290 Q885 278 945 300 Q955 335 920 360 Q865 372 835 350 Q812 320 820 290 Z"/>
+  </g>
+</svg>

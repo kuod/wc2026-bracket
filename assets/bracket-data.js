@@ -56,6 +56,33 @@ const TEAM_SHORT = {
   "Colombia": "COL", "Ghana": "GHA"
 };
 
+// Geographic continent per team — the single source of truth for the pool's
+// "Title picks by continent" stat. Geographic (not confederation): Australia is
+// Oceania here even though it competes in the AFC, which is the intuitive read
+// for "what part of the world is the pool backing". All 32 R32 teams are mapped.
+const TEAM_CONTINENT = {
+  // Europe (13)
+  "Germany": "Europe", "Netherlands": "Europe", "Norway": "Europe",
+  "France": "Europe", "Sweden": "Europe", "England": "Europe",
+  "Belgium": "Europe", "Bosnia and Herzegovina": "Europe", "Spain": "Europe",
+  "Austria": "Europe", "Switzerland": "Europe", "Portugal": "Europe",
+  "Croatia": "Europe",
+  // Africa (9)
+  "South Africa": "Africa", "Morocco": "Africa", "Ivory Coast": "Africa",
+  "DR Congo": "Africa", "Senegal": "Africa", "Algeria": "Africa",
+  "Egypt": "Africa", "Cape Verde": "Africa", "Ghana": "Africa",
+  // South America (5)
+  "Brazil": "South America", "Paraguay": "South America",
+  "Ecuador": "South America", "Argentina": "South America",
+  "Colombia": "South America",
+  // North America (3)
+  "Canada": "North America", "Mexico": "North America",
+  "United States": "North America",
+  // Asia (1) / Oceania (1)
+  "Japan": "Asia",
+  "Australia": "Oceania"
+};
+
 // TheSportsDB (and other feeds) name some teams differently from our canonical
 // display names. Map their spelling -> ours. Keys are matched after running
 // normalizeTeam() on both sides, so accents/case/punctuation don't matter here.
@@ -181,6 +208,38 @@ function resolveTeamName(externalName) {
 function shortCode(team) {
   if (!team) return "";
   return TEAM_SHORT[team] || team.slice(0, 3).toUpperCase();
+}
+
+// The continent a team belongs to (see TEAM_CONTINENT), or null if unmapped.
+function continentOf(team) {
+  return TEAM_CONTINENT[team] || null;
+}
+
+// A small inline-SVG glyph per continent: a faint globe with the continent's
+// region highlighted (its rough position on the globe face). Inline SVG renders
+// identically on every OS — the same reason flag() uses <img> over emoji flags
+// (Windows shows emoji globes/flags as letter boxes). currentColor lets the CSS
+// tint it (gold for the leader chip). Each entry is just the highlight blob;
+// _GLOBE supplies the shared ring/meridians so the markup isn't repeated.
+const _CONTINENT_BLOB = {
+  "Europe":        '<circle cx="12" cy="8"  r="3" fill="currentColor"/>',
+  "Africa":        '<circle cx="13" cy="14" r="3" fill="currentColor"/>',
+  "South America": '<circle cx="9"  cy="16" r="3" fill="currentColor"/>',
+  "North America": '<circle cx="8"  cy="8"  r="3" fill="currentColor"/>',
+  "Asia":          '<circle cx="16" cy="9"  r="3" fill="currentColor"/>',
+  "Oceania":       '<circle cx="16" cy="16" r="3" fill="currentColor"/>'
+};
+const _GLOBE =
+  '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/>' +
+  '<ellipse cx="12" cy="12" rx="4" ry="9" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"/>' +
+  '<line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1" opacity="0.3"/>';
+
+// Return an inline <svg> glyph for a continent (HTML content only, never an
+// attribute), or "" if the name isn't one of the six. Sized to text via CSS.
+function continentGlyph(name) {
+  const blob = _CONTINENT_BLOB[name];
+  if (!blob) return "";
+  return `<svg class="cont-glyph" viewBox="0 0 24 24" aria-hidden="true">${_GLOBE}${blob}</svg>`;
 }
 
 // ============================================================

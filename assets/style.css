@@ -742,6 +742,42 @@ body.on-leaderboard { overflow: auto; }
 .stat-sub { font-family: var(--font-mono); font-size: 11px; margin-bottom: 8px; }
 .stat-card-mini .stat-line strong { font-family: var(--font-mono); color: var(--gold-bright); }
 
+/* "Title picks by continent": a wide card with percentage chips floated over a
+   faint world map, plus a sorted bar list below as the fallback read. It should
+   span two grid columns ONLY when the grid actually has room for two — otherwise
+   `span 2` would force the auto-fit grid to materialise a cramped second track
+   (squeezing the other six cards) instead of collapsing to one column. The grid
+   width (not the viewport) is what decides this — the stats zone is a narrow
+   side column on desktop but full width when the dashboard stacks — so gate the
+   span on a container query of the grid's own width (2×220px min + gap). */
+#pool-stats-root { container-type: inline-size; }
+.stat-card-wide { grid-column: span 1; }
+@container (min-width: 454px) {
+  .stat-card-wide { grid-column: span 2; }
+}
+.continent-map { position: relative; width: 100%; aspect-ratio: 2 / 1; margin-bottom: 10px; }
+.continent-map img { width: 100%; height: 100%; object-fit: contain; opacity: 0.5; }
+.cont-chip {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: clamp(10px, 0.9vw, 13px);
+  line-height: 1;
+  color: var(--chalk);
+  background: rgba(11, 18, 14, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.cont-chip.leader { color: var(--gold-bright); border-color: var(--gold); }
+.cont-chip b { font-weight: 700; }
+/* Inline-SVG continent glyph, sized to the surrounding text (chips + bar list). */
+.cont-glyph { width: 1.05em; height: 1.05em; flex: none; }
+
 .muted { color: rgba(246,243,234,0.45); }
 
 footer.site-footer {
