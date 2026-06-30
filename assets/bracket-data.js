@@ -137,15 +137,18 @@ const ROUND_OF_32 = [
 ];
 
 // Round of 16: each match's two slots are filled by winners of two R32 matches.
+// Pairings follow the official 2026 bracket, where the draw cross-pairs R32
+// matches across the two halves of the chart (NOT sequential R32-1+R32-2 etc.).
+// SF-1's subtree is the left half of the draw; SF-2's is the right half.
 const ROUND_OF_16 = [
-  { id: "R16-1", from: ["R32-1", "R32-2"] },
-  { id: "R16-2", from: ["R32-3", "R32-4"] },
-  { id: "R16-3", from: ["R32-5", "R32-6"] },
-  { id: "R16-4", from: ["R32-7", "R32-8"] },
-  { id: "R16-5", from: ["R32-9", "R32-10"] },
-  { id: "R16-6", from: ["R32-11", "R32-12"] },
-  { id: "R16-7", from: ["R32-13", "R32-14"] },
-  { id: "R16-8", from: ["R32-15", "R32-16"] }
+  { id: "R16-1", from: ["R32-3", "R32-6"] },    // GER/PAR vs FRA/SWE
+  { id: "R16-2", from: ["R32-1", "R32-4"] },    // RSA/CAN vs NED/MAR
+  { id: "R16-3", from: ["R32-13", "R32-11"] },  // POR/CRO vs ESP/AUT
+  { id: "R16-4", from: ["R32-10", "R32-9"] },   // USA/BIH vs BEL/SEN
+  { id: "R16-5", from: ["R32-2", "R32-5"] },    // BRA/JPN vs CIV/NOR
+  { id: "R16-6", from: ["R32-7", "R32-8"] },    // MEX/ECU vs ENG/COD
+  { id: "R16-7", from: ["R32-15", "R32-14"] },  // ARG/CPV vs AUS/EGY
+  { id: "R16-8", from: ["R32-12", "R32-16"] }   // SUI/ALG vs COL/GHA
 ];
 
 const QUARTERFINALS = [

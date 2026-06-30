@@ -160,7 +160,57 @@ function roundShortLabel(key) {
   return key === "FINAL" ? "Final" : key;
 }
 
+// The teams NOT yet eliminated — every R32 entrant minus the loser of each
+// decided match. Drives the world map's "Likely" bar (share of survivors per
+// continent). Starts from all 32 R32 teams and, for each decided match, resolves
+// its two actual teams (R32 fixed pair, or the feeder winners for later rounds)
+// and removes the one that didn't win. Skips a match whose teams aren't both
+// resolved yet, or whose winner isn't one of the two — the same defensive guard
+// loadResults() needs, since a look-ahead override can name a future-round winner
+// before its feeders are known. Returns a Set of canonical team names.
+function survivingTeams() {
+  const alive = new Set();
+  ROUND_OF_32.forEach(m => { alive.add(m.teamA); alive.add(m.teamB); });
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      const winner = actualResults[m.id];
+      if (!winner) continue;
+      const [teamA, teamB] = actualMatchTeams(round.key, m);
+      if (!teamA || !teamB) continue;
+      if (winner !== teamA && winner !== teamB) continue;
+      alive.delete(winner === teamA ? teamB : teamA);
+    }
+  }
+  return alive;
+}
+
 // ---- Predictions: auto-fetched from the Google Sheet ------------------------
+
+// Drop any pick that can't legally appear in its match under the CURRENT bracket
+// graph, mutating `picks` in place and returning true if anything was removed.
+// This is the leaderboard's counterpart to pruneInvalidPicks() in app.js: when
+// the bracket topology is corrected, brackets submitted against the old graph
+// carry now-impossible R16+ picks. Walking ROUNDS in order means a pruned feeder
+// leaves the downstream match with an empty slot, so its orphaned pick is pruned
+// in the same pass. Legal teams come from each match's resolved feeders (here,
+// the submitter's own earlier picks) — the same "reachable, not necessarily a
+// complete path" rule the form uses, so the two agree on what's stale.
+function prunePredictionPicks(picks) {
+  let removed = false;
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      if (!picks[m.id]) continue;
+      const legal = round.key === "R32"
+        ? [m.teamA, m.teamB]
+        : [picks[m.from[0]], picks[m.from[1]]];
+      if (picks[m.id] !== legal[0] && picks[m.id] !== legal[1]) {
+        delete picks[m.id];
+        removed = true;
+      }
+    }
+  }
+  return removed;
+}
 
 async function fetchPredictionsFromSheet(url) {
   const res = await fetch(url);
@@ -190,7 +240,16 @@ async function fetchPredictionsFromSheet(url) {
       byName.set(r.predictor, r);
     }
   }
-  return Array.from(byName.values());
+
+  // Prune picks the corrected bracket can't deliver and flag the entry so the
+  // leaderboard can nudge that person to resubmit. Pruning AFTER the de-dupe so
+  // it runs once per surviving row. Their still-legal picks (e.g. R32 winners,
+  // whose matchups never changed) stay and keep scoring.
+  const cleaned = Array.from(byName.values());
+  for (const r of cleaned) {
+    r.needsResubmit = prunePredictionPicks(r.picks);
+  }
+  return cleaned;
 }
 
 // ---- Scoring ----------------------------------------------------------------
@@ -380,12 +439,15 @@ function renderCanvasHead(pred) {
   if (pred) {
     title.textContent = pred.predictor;
     const decided = pred.decidedCount || 0;
+    // Same nudge as the ranked-list badge, for the per-person hero view.
+    const resubmit = pred.needsResubmit
+      ? ` · <span class="ch-resubmit">please resubmit</span>` : "";
     score.innerHTML =
       `<span class="ch-stat">` +
         `<span class="ch-stat-num" data-flip="canvas:score">${pred.score}</span>` +
         `<span class="ch-stat-label">${plural(pred.score, "point", "points")}</span>` +
       `</span>` +
-      `<span class="ch-stat-sec">${pred.correctCount}/${decided || "—"} correct · rank #${pred.rank}</span>`;
+      `<span class="ch-stat-sec">${pred.correctCount}/${decided || "—"} correct · rank #${pred.rank}${resubmit}</span>`;
   } else {
     title.textContent = "Live Results";
     const d = decidedCount();
@@ -422,11 +484,16 @@ function renderLeaderboard() {
     // rank 1/2/3 shares the medal styling rather than only the first listed.
     const medal = p.rank === 1 ? "gold" : p.rank === 2 ? "silver" : p.rank === 3 ? "bronze" : "";
     const active = p.predictor === selectedPredictor ? " is-active" : "";
+    // The bracket was corrected after this person submitted: their now-impossible
+    // R16+ picks were pruned on load, so prompt them to fill it in again.
+    const resubmit = p.needsResubmit
+      ? `<span class="lb-resubmit" title="The bracket was corrected — your later-round picks were cleared. Please resubmit.">Please Resubmit</span>`
+      : "";
     return `
       <li class="lb-entry${active}${medal ? " medal-" + medal : ""}" data-name="${escapeAttr(p.predictor)}">
         <button type="button" class="lb-row" aria-pressed="${active ? "true" : "false"}" aria-label="${escapeAttr(`Show ${p.predictor}'s bracket`)}">
           <span class="lb-rank ${medal}" data-flip="rank:${escapeAttr(p.predictor)}">${p.rank}</span>
-          <span class="lb-name">${escapeHtml(p.predictor)}</span>
+          <span class="lb-name"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
           <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
@@ -591,19 +658,45 @@ function renderPoolStats() {
   }
   const chalk = shareN ? Math.round((shareSum / shareN) * 100) : 0;
 
-  // 7) Title picks by continent — fold every champion (FINAL) pick into its
-  //    geographic continent, then float each share over a mini world map (and
-  //    list them below as a fallback read). Shares sum to 100% of resolved picks.
+  // 7) Title picks by continent — TWO bars per continent. "Predicted" is the
+  //    share of the pool's champion (FINAL) picks landing in that continent;
+  //    "Likely" is the share of teams still alive (not yet eliminated) there,
+  //    which moves as results come in. The faint world map floats the Predicted
+  //    shares as chips above the split-bar list.
   const contCounts = {};
   for (const p of predictions) {
     const c = continentOf(p.picks["FINAL"]);
     if (c) contCounts[c] = (contCounts[c] || 0) + 1;
   }
   const contTotal = Object.values(contCounts).reduce((s, x) => s + x, 0);
-  // Sorted desc by count, then name — deterministic regardless of pool order.
+
+  // "Likely": fold the surviving teams into their continents. totalSurvivors is
+  // the denominator (29 right now: 3 R32 results have knocked 3 teams out).
+  const survivors = survivingTeams();
+  const likeCounts = {};
+  for (const team of survivors) {
+    const c = continentOf(team);
+    if (c) likeCounts[c] = (likeCounts[c] || 0) + 1;
+  }
+  const totalSurvivors = survivors.size;
+
+  // Predicted ranking drives the map chips (the leader chip is gold).
   const contSorted = Object.entries(contCounts)
     .map(([name, count]) => ({ name, count, share: count / contTotal }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  // The split-bar list spans every continent with a champion pick OR a live team,
+  // ordered by Likely share (always present once any team survives), then by
+  // Predicted, then name — deterministic regardless of pool/Set iteration order.
+  const contNames = new Set([...Object.keys(contCounts), ...Object.keys(likeCounts)]);
+  const contRows = Array.from(contNames).map(name => ({
+    name,
+    predPct: contTotal ? Math.round((contCounts[name] || 0) / contTotal * 100) : 0,
+    predCount: contCounts[name] || 0,
+    likePct: totalSurvivors ? Math.round((likeCounts[name] || 0) / totalSurvivors * 100) : 0,
+    likeCount: likeCounts[name] || 0
+  })).sort((a, b) => b.likePct - a.likePct || b.predPct - a.predPct || a.name.localeCompare(b.name));
+
   // Each continent's centroid on the world-mini.svg (dot-matrix) viewBox, as
   // map %. Emitted by tools/gen_dotmap.py (mean of each continent's dots in the
   // Winkel-Tripel projection) — regenerate both together, never eyeball these.
@@ -615,17 +708,23 @@ function renderPoolStats() {
     "Asia":          { left: 72, top: 36 },
     "Oceania":       { left: 90, top: 79 }
   };
-  const continentHtml = contTotal
+  // Map chips carry BOTH numbers — gold Predicted | cyan Likely — so the gap
+  // between what the pool believes and what's surviving reads straight off the
+  // globe. The two-colour split is the legend; the header strip names it once.
+  const mapHtml = contRows.length
     ? `<div class="continent-map">
          <img src="img/world-mini.svg" alt="" aria-hidden="true">
-         ${contSorted.map((c, i) => {
+         ${contRows.map(c => {
            const pos = CONTINENT_POS[c.name] || { left: 50, top: 50 };
-           const pct = Math.round(c.share * 100);
-           return `<span class="cont-chip${i === 0 ? " leader" : ""}" style="left:${pos.left}%;top:${pos.top}%;" title="${escapeAttr(c.name)}">${continentGlyph(c.name)}<b>${pct}%</b></span>`;
+           return `<span class="cont-chip" style="left:${pos.left}%;top:${pos.top}%;" title="${escapeAttr(c.name)}: predicted ${c.predPct}%, still alive ${c.likePct}%"><b class="pred">${c.predPct}%</b><i class="sep" aria-hidden="true">|</i><b class="like">${c.likePct}%</b></span>`;
          }).join("")}
-       </div>
-       ${contSorted.map(c => continentBar(c.name, c.count, c.share)).join("")}`
+       </div>`
+    : "";
+  const barsHtml = contRows.length
+    ? `<div class="cont-split-head"><span class="h-pred">Predicted</span><span class="h-like">Likely</span></div>` +
+      contRows.map(c => continentSplitBar(c)).join("")
     : `<p class="muted">No title picks yet.</p>`;
+  const continentHtml = mapHtml + barsHtml;
 
   root.innerHTML = `
     <div class="stat-grid">
@@ -679,14 +778,25 @@ function statBar(team, count, share) {
   `;
 }
 
-// Like statBar, but for a continent: an inline-SVG globe glyph instead of a flag.
-function continentBar(name, count, share) {
-  const pct = Math.round(share * 100);
+// One continent row with TWO bars side by side: Predicted (pool's champion-pick
+// share, gold) on the left and Likely (share of surviving teams, cool) on the
+// right, each with its own %. `c` carries the pre-rounded percentages and raw
+// counts; the counts ride along in the value cell and tooltips. A continent with
+// no champion picks still appears if it has live teams (predPct 0), and vice
+// versa — so the row set is the union, matching the map+bars intent.
+function continentSplitBar(c) {
   return `
-    <div class="stat-bar">
-      <span class="stat-bar-label">${continentGlyph(name)}<span>${escapeHtml(name)}</span></span>
-      <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${pct}%"></span></span>
-      <span class="stat-bar-val">${pct}% <span class="muted">(${count})</span></span>
+    <div class="cont-split">
+      <span class="stat-bar-label">${continentGlyph(c.name)}<span>${escapeHtml(c.name)}</span></span>
+      <span class="cont-split-pred">
+        <span class="stat-bar-track"><span class="stat-bar-fill" style="width:${c.predPct}%"></span></span>
+        <span class="stat-bar-val" title="Predicted by the pool">${c.predPct}% <span class="muted">(${c.predCount})</span></span>
+      </span>
+      <span class="cont-split-div" aria-hidden="true"></span>
+      <span class="cont-split-like">
+        <span class="stat-bar-track"><span class="stat-bar-fill like" style="width:${c.likePct}%"></span></span>
+        <span class="stat-bar-val" title="Teams still alive">${c.likePct}% <span class="muted">(${c.likeCount})</span></span>
+      </span>
     </div>
   `;
 }

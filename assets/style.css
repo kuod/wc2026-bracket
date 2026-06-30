@@ -11,6 +11,10 @@
   --charcoal: #1b1f1d;
   --gold: #d4a843;
   --gold-bright: #f0c75e;
+  /* Cool counter-accent to the gold: marks the "Likely" (survivor-share) metric
+     everywhere it pairs with the gold "Predicted" metric — chips, headers, bars. */
+  --cool: #4f9bb5;
+  --cool-bright: #79c4dc;
   --line: rgba(246, 243, 234, 0.16);
   --line-strong: rgba(246, 243, 234, 0.32);
   --red-card: #b3432b;
@@ -711,7 +715,28 @@ textarea.json-box {
 .lb-rank.silver { color: #cdd2d6; }
 .lb-rank.bronze { color: #cd915b; }
 
-.lb-name { font-weight: 700; font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-name { font-weight: 700; font-size: 15.5px; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.lb-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* "Please Resubmit" pill: the bracket was corrected after this person submitted,
+   so their later-round picks were cleared. A muted red-card tint flags it as
+   needs-attention without shouting; flex:none keeps it whole as the name ellipsizes. */
+.lb-resubmit {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  padding: 3px 7px;
+  border-radius: 100px;
+  color: var(--chalk);
+  background: rgba(179, 67, 43, 0.22);
+  border: 1px solid var(--red-card);
+}
+/* The same nudge inline in the per-person hero stat line. */
+.ch-resubmit { color: var(--red-card); font-weight: 700; }
 .lb-champ { display: flex; align-items: center; }
 .lb-correct { font-family: var(--font-mono); font-size: 13px; color: rgba(246,243,234,0.7); white-space: nowrap; }
 .lb-score { font-family: var(--font-mono); font-size: 17px; font-weight: 700; color: var(--gold-bright); white-space: nowrap; }
@@ -902,11 +927,13 @@ body.on-leaderboard { overflow: auto; }
   margin: 0 0 10px;
   color: var(--chalk);
 }
-.stat-bar { display: grid; grid-template-columns: minmax(74px, 0.85fr) 3fr auto; align-items: center; gap: 10px; margin-bottom: 8px; }
+/* Fixed value column (not auto) so every bar track is the same length down the
+   list and the right-hand %s align in one column, whatever their digit count. */
+.stat-bar { display: grid; grid-template-columns: minmax(74px, 0.85fr) 3fr 64px; align-items: center; gap: 10px; margin-bottom: 8px; }
 .stat-bar-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat-bar-track { height: 8px; background: rgba(255,255,255,0.08); border-radius: 100px; overflow: hidden; }
 .stat-bar-fill { display: block; height: 100%; background: var(--gold-bright); border-radius: 100px; }
-.stat-bar-val { font-family: var(--font-mono); font-size: 12px; color: rgba(246,243,234,0.75); white-space: nowrap; }
+.stat-bar-val { font-family: var(--font-mono); font-size: 12px; color: rgba(246,243,234,0.75); white-space: nowrap; text-align: right; }
 .stat-line { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .stat-line:last-child { border-bottom: none; }
 .stat-sub { font-family: var(--font-mono); font-size: 11px; margin-bottom: 8px; }
@@ -925,28 +952,57 @@ body.on-leaderboard { overflow: auto; }
    off their dots. No border by design: the dots define their own silhouette. */
 .continent-map { position: relative; width: 100%; max-width: 80%; aspect-ratio: 1022 / 502; margin: 6px auto 16px; }
 .continent-map img { width: 100%; height: 100%; object-fit: contain; opacity: 0.5; }
+/* Map chip: two numbers, gold "Predicted | cyan "Likely". The two-colour pairing
+   is the whole legend — no glyph (the dot position already says which continent),
+   no leader border (gold now means the Predicted metric, not a rank). */
 .cont-chip {
   position: absolute;
   transform: translate(-50%, -50%);
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 4px;
   font-family: var(--font-mono);
   font-size: clamp(11px, 1vw, 14px);
+  font-weight: 700;
   line-height: 1;
-  color: var(--chalk);
-  background: rgba(11, 18, 14, 0.7);
+  background: rgba(11, 18, 14, 0.78);
   border: 1px solid var(--line);
   border-radius: 100px;
-  padding: 3px 8px;
+  padding: 3px 9px;
   white-space: nowrap;
 }
-.cont-chip.leader { color: var(--gold-bright); border-color: var(--gold); }
-/* The % is the chip's payload — set it a notch larger than its glyph so the
-   number is what reads first. */
-.cont-chip b { font-weight: 700; font-size: 1.1em; }
-/* Inline-SVG continent glyph, sized to the surrounding text (chips + bar list). */
+.cont-chip .pred { color: var(--gold-bright); }
+.cont-chip .like { color: var(--cool-bright); }
+.cont-chip .sep { font-style: normal; font-weight: 400; color: rgba(246,243,234,0.35); }
+/* Inline-SVG continent glyph, sized to the surrounding text (the bar list labels). */
 .cont-glyph { width: 1.05em; height: 1.05em; flex: none; }
+
+/* Two-bar continent row: a glyph+name label, then Predicted (gold) and Likely
+   (cyan) tracks side by side with a hairline divider between. The header strip
+   above names the two columns once, in the same two colours, so the row %s need
+   no inline labels. Grid columns mirror the head and every row so they align. */
+/* Fixed-width value columns (not auto) so both bar tracks are EXACTLY equal
+   length and the right-hand %s line up in two clean columns regardless of digit
+   count. The 1fr tracks split the leftover width evenly. */
+.cont-split-head,
+.cont-split {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.9fr) 1fr 66px 1px 1fr 66px;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.cont-split-head { margin-bottom: 6px; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+/* Headers sit over their bar track (column 2 / column 5), centred on it. */
+.cont-split-head .h-pred { grid-column: 2; text-align: center; color: var(--gold-bright); }
+.cont-split-head .h-like { grid-column: 5; text-align: center; color: var(--cool-bright); }
+/* The Predicted/Likely sub-cells each hold a track + its value, sharing the row
+   grid so tracks line up regardless of value width. */
+.cont-split-pred,
+.cont-split-like { display: contents; }
+.cont-split-div { width: 1px; height: 14px; background: var(--line); }
+.cont-split .stat-bar-val { font-size: 11px; text-align: right; }
+.stat-bar-fill.like { background: var(--cool-bright); }
 
 .muted { color: rgba(246,243,234,0.45); }
 
