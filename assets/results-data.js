@@ -5,8 +5,8 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-30T19:00:51Z",
-  "source": "TheSportsDB",
+  "generatedAt": "2026-06-30T20:11:56Z",
+  "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
   "results": {
@@ -24,6 +24,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "FT",
       "sportsDbEventId": "2499618",
+      "source": "TheSportsDB",
       "completedAt": "2026-06-28"
     },
     "R32-2": {
@@ -40,6 +41,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "FT",
       "sportsDbEventId": "2499835",
+      "source": "TheSportsDB",
       "completedAt": "2026-06-29"
     },
     "R32-3": {
@@ -56,6 +58,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": "4",
       "decidedBy": "AP",
       "sportsDbEventId": "2502846",
+      "source": "TheSportsDB",
       "completedAt": "2026-06-29"
     },
     "R32-4": {
@@ -68,26 +71,28 @@ window.WC2026_RESULTS = {
       "awayTeam": "Morocco",
       "homeScore": "1",
       "awayScore": "1",
-      "homeScoreExtra": "2",
-      "awayScoreExtra": "3",
+      "homeScoreExtra": 2,
+      "awayScoreExtra": 3,
       "decidedBy": "AP",
-      "sportsDbEventId": "2499836",
-      "completedAt": "2026-06-30"
+      "sportsDbEventId": "760488",
+      "source": "ESPN",
+      "completedAt": "2026-06-30T01:00Z"
     },
     "R32-5": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "Ivory Coast",
       "teamB": "Norway",
-      "winner": null,
+      "winner": "Norway",
       "homeTeam": "Ivory Coast",
       "awayTeam": "Norway",
       "homeScore": "1",
       "awayScore": "2",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "2H",
+      "decidedBy": "FT",
       "sportsDbEventId": "2502605",
+      "source": "TheSportsDB",
       "completedAt": "2026-06-30"
     },
     "R32-6": {
@@ -104,6 +109,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2502847",
+      "source": "TheSportsDB",
       "completedAt": "2026-06-30"
     },
     "R32-7": {
@@ -114,13 +120,14 @@ window.WC2026_RESULTS = {
       "winner": null,
       "homeTeam": "Mexico",
       "awayTeam": "Ecuador",
-      "homeScore": null,
-      "awayScore": null,
+      "homeScore": "0",
+      "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
       "decidedBy": "NS",
-      "sportsDbEventId": "2503390",
-      "completedAt": "2026-07-01"
+      "sportsDbEventId": "760491",
+      "source": "ESPN",
+      "completedAt": "2026-07-01T01:00Z"
     },
     "R32-8": {
       "status": "scheduled",
@@ -136,6 +143,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2503391",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-01"
     },
     "R32-9": {
@@ -152,6 +160,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2503392",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-01"
     },
     "R32-10": {
@@ -162,13 +171,14 @@ window.WC2026_RESULTS = {
       "winner": null,
       "homeTeam": "United States",
       "awayTeam": "Bosnia and Herzegovina",
-      "homeScore": null,
-      "awayScore": null,
+      "homeScore": "0",
+      "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
       "decidedBy": "NS",
-      "sportsDbEventId": "2499837",
-      "completedAt": "2026-07-02"
+      "sportsDbEventId": "760494",
+      "source": "ESPN",
+      "completedAt": "2026-07-02T00:00Z"
     },
     "R32-11": {
       "status": "scheduled",
@@ -184,6 +194,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2503636",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-02"
     },
     "R32-12": {
@@ -194,13 +205,14 @@ window.WC2026_RESULTS = {
       "winner": null,
       "homeTeam": "Switzerland",
       "awayTeam": "Algeria",
-      "homeScore": null,
-      "awayScore": null,
+      "homeScore": "0",
+      "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
       "decidedBy": "NS",
-      "sportsDbEventId": "2503635",
-      "completedAt": "2026-07-03"
+      "sportsDbEventId": "760498",
+      "source": "ESPN",
+      "completedAt": "2026-07-03T03:00Z"
     },
     "R32-13": {
       "status": "scheduled",
@@ -216,6 +228,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2503393",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-02"
     },
     "R32-14": {
@@ -232,6 +245,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2502848",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-03"
     },
     "R32-15": {
@@ -248,6 +262,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2502849",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-03"
     },
     "R32-16": {
@@ -258,13 +273,14 @@ window.WC2026_RESULTS = {
       "winner": null,
       "homeTeam": "Colombia",
       "awayTeam": "Ghana",
-      "homeScore": null,
-      "awayScore": null,
+      "homeScore": "0",
+      "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
       "decidedBy": "NS",
-      "sportsDbEventId": "2503394",
-      "completedAt": "2026-07-04"
+      "sportsDbEventId": "760501",
+      "source": "ESPN",
+      "completedAt": "2026-07-04T01:30Z"
     },
     "R16-1": {
       "status": "scheduled",
@@ -287,6 +303,7 @@ window.WC2026_RESULTS = {
       "awayScoreExtra": null,
       "decidedBy": "NS",
       "sportsDbEventId": "2505183",
+      "source": "TheSportsDB",
       "completedAt": "2026-07-04"
     },
     "R16-3": {
@@ -307,8 +324,18 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "R16",
       "teamA": "Brazil",
-      "teamB": null,
-      "winner": null
+      "teamB": "Norway",
+      "winner": null,
+      "homeTeam": "Brazil",
+      "awayTeam": "Norway",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760504",
+      "source": "ESPN",
+      "completedAt": "2026-07-05T20:00Z"
     },
     "R16-6": {
       "status": "scheduled",
@@ -384,23 +411,124 @@ window.WC2026_RESULTS = {
   "unmatchedEvents": [
     {
       "eventId": "2391780",
+      "source": "TheSportsDB",
       "home": "Jordan",
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    }
-  ],
-  "warnings": [
-    {
-      "type": "undetermined-winner",
-      "match": "Algeria vs Austria",
-      "eventId": "2391777",
-      "detail": "level score, winner undetermined"
     },
     {
-      "type": "unmatched-team",
-      "sportsDbName": "Jordan",
-      "eventId": "2391780"
+      "eventId": "760503",
+      "source": "ESPN",
+      "home": "Paraguay",
+      "away": "Round of 32 5 Winner",
+      "resolvedHome": "Paraguay",
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760505",
+      "source": "ESPN",
+      "home": "Round of 32 7 Winner",
+      "away": "Round of 32 8 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760506",
+      "source": "ESPN",
+      "home": "Round of 32 11 Winner",
+      "away": "Round of 32 12 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760507",
+      "source": "ESPN",
+      "home": "Round of 32 9 Winner",
+      "away": "Round of 32 10 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760509",
+      "source": "ESPN",
+      "home": "Round of 32 14 Winner",
+      "away": "Round of 32 16 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760508",
+      "source": "ESPN",
+      "home": "Round of 32 13 Winner",
+      "away": "Round of 32 15 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760510",
+      "source": "ESPN",
+      "home": "Round of 16 1 Winner",
+      "away": "Round of 16 2 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760511",
+      "source": "ESPN",
+      "home": "Round of 16 5 Winner",
+      "away": "Round of 16 6 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760512",
+      "source": "ESPN",
+      "home": "Round of 16 3 Winner",
+      "away": "Round of 16 4 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760513",
+      "source": "ESPN",
+      "home": "Round of 16 7 Winner",
+      "away": "Round of 16 8 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760514",
+      "source": "ESPN",
+      "home": "Quarterfinal 1 Winner",
+      "away": "Quarterfinal 2 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760515",
+      "source": "ESPN",
+      "home": "Quarterfinal 3 Winner",
+      "away": "Quarterfinal 4 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760516",
+      "source": "ESPN",
+      "home": "Semifinal 1 Loser",
+      "away": "Semifinal 2 Loser",
+      "resolvedHome": null,
+      "resolvedAway": null
+    },
+    {
+      "eventId": "760517",
+      "source": "ESPN",
+      "home": "Semifinal 1 Winner",
+      "away": "Semifinal 2 Winner",
+      "resolvedHome": null,
+      "resolvedAway": null
     }
-  ]
+  ],
+  "warnings": []
 };
