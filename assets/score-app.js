@@ -32,6 +32,62 @@ function plural(n, singular, pluralForm) {
   return n === 1 ? singular : (pluralForm || singular + "s");
 }
 
+// ---- Motion: split-flap numbers + one-time bracket reveal --------------------
+// Honor the OS "reduce motion" setting. Checked LIVE (not cached at load) so a
+// preference flipped mid-session is respected by both effects below.
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+// Split-flap (Solari board) number animation. A cell opts in with
+// data-flip="<stableKey>"; after each render applyFlips() diffs its new text
+// against the cached last value for that key and rolls only what changed. The
+// first time a key is seen (cache miss) we set it silently — so flips never fire
+// on initial paint, only on a genuine change (switching brackets, a results
+// update). Survives the destructive innerHTML re-renders because the cache is
+// keyed by a stable string, not by a DOM node.
+const _flipCache = new Map();
+
+function applyFlips(scope) {
+  if (!scope) return;
+  scope.querySelectorAll("[data-flip]").forEach(el => {
+    const key = el.getAttribute("data-flip");
+    const next = el.textContent;
+    const prev = _flipCache.get(key);
+    _flipCache.set(key, next);
+    if (prefersReducedMotion() || prev === undefined || prev === next) return;
+    rollNumber(el, prev, next);
+  });
+}
+
+// Roll `el` from prev → next: stack the two values in a clipped viewport and
+// slide the reel up one cell, then settle back to plain text so the next diff
+// starts clean. Whole-value (not per-digit) — scores are 1–2 chars.
+function rollNumber(el, prev, next) {
+  el.classList.add("flip-viewport");
+  el.innerHTML =
+    `<span class="flip-reel"><span class="flip-cell">${escapeHtml(prev)}</span>` +
+    `<span class="flip-cell">${escapeHtml(next)}</span></span>`;
+  const reel = el.firstChild;
+  void reel.offsetHeight;                                  // commit the start state
+  requestAnimationFrame(() => reel.classList.add("flip-go"));
+
+  let settled = false;
+  const settle = () => {
+    if (settled) return;
+    settled = true;
+    el.classList.remove("flip-viewport");
+    el.textContent = next;
+  };
+  reel.addEventListener("transitionend", settle, { once: true });
+  setTimeout(settle, 700);                                  // fallback if the tab was hidden
+}
+
+// The bracket fans in round-by-round on the FIRST canvas paint only; every later
+// render (row-click morphs) is instant so the flips own the motion from then on.
+let _bracketRevealed = false;
+
 // ---- Results: overrides win over embedded; nothing is fetched live ----------
 
 function loadResults() {
@@ -298,17 +354,48 @@ function renderBracketCanvas() {
     renderCard: (rk, m) => canvasCard(rk, m, pred)
   });
 
-  // Canvas header reflects what's shown.
+  // First paint only: fan the wallchart in round-by-round (R32 → Final) via the
+  // per-round transition delays in CSS. Every later render (a row-click morph)
+  // skips the gate so it's instant, leaving the flips to own the motion.
+  if (!_bracketRevealed && !prefersReducedMotion()) {
+    root.classList.add("reveal");
+    void root.offsetHeight;                  // commit the hidden start state
+    requestAnimationFrame(() => root.classList.add("revealed"));
+    _bracketRevealed = true;
+  }
+
+  renderCanvasHead(pred);
+}
+
+// The hero header reads as a stadium scoreboard: a featured stat (big number +
+// small label) plus a secondary line, swapping between the live-results and the
+// per-person views. The featured number carries data-flip so it rolls (split-flap)
+// when it changes — e.g. switching from one bracket to another.
+function renderCanvasHead(pred) {
+  const head = document.querySelector(".canvas-head");
   const title = document.getElementById("canvas-title");
   const score = document.getElementById("canvas-score");
+  if (!title || !score) return;
+
   if (pred) {
     title.textContent = pred.predictor;
-    score.textContent = `${pred.score} ${plural(pred.score, "pt", "pts")} · ${pred.correctCount}/${pred.decidedCount || 0} correct · rank #${pred.rank}`;
+    const decided = pred.decidedCount || 0;
+    score.innerHTML =
+      `<span class="ch-stat">` +
+        `<span class="ch-stat-num" data-flip="canvas:score">${pred.score}</span>` +
+        `<span class="ch-stat-label">${plural(pred.score, "point", "points")}</span>` +
+      `</span>` +
+      `<span class="ch-stat-sec">${pred.correctCount}/${decided || "—"} correct · rank #${pred.rank}</span>`;
   } else {
     title.textContent = "Live Results";
     const d = decidedCount();
-    score.textContent = `${d} ${plural(d, "match", "matches")} decided`;
+    score.innerHTML =
+      `<span class="ch-stat">` +
+        `<span class="ch-stat-num" data-flip="canvas:decided">${d}</span>` +
+        `<span class="ch-stat-label">${plural(d, "match", "matches")} decided</span>` +
+      `</span>`;
   }
+  applyFlips(head);
 }
 
 // ---- Ranked list (a selector that drives the canvas) ------------------------
@@ -336,13 +423,13 @@ function renderLeaderboard() {
     const medal = p.rank === 1 ? "gold" : p.rank === 2 ? "silver" : p.rank === 3 ? "bronze" : "";
     const active = p.predictor === selectedPredictor ? " is-active" : "";
     return `
-      <li class="lb-entry${active}" data-name="${escapeAttr(p.predictor)}">
+      <li class="lb-entry${active}${medal ? " medal-" + medal : ""}" data-name="${escapeAttr(p.predictor)}">
         <button type="button" class="lb-row" aria-pressed="${active ? "true" : "false"}" aria-label="${escapeAttr(`Show ${p.predictor}'s bracket`)}">
-          <span class="lb-rank ${medal}">${p.rank}</span>
+          <span class="lb-rank ${medal}" data-flip="rank:${escapeAttr(p.predictor)}">${p.rank}</span>
           <span class="lb-name">${escapeHtml(p.predictor)}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
-          <span class="lb-score">${p.score}<span class="muted">${plural(p.score, "pt", "pts")}</span></span>
+          <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
           <span class="lb-caret" aria-hidden="true">${active ? "●" : "▸"}</span>
         </button>
       </li>
@@ -360,6 +447,8 @@ function renderLeaderboard() {
       renderBracketCanvas();
     });
   });
+
+  applyFlips(root);
 }
 
 // ---- Pool stats (6 cards) ---------------------------------------------------
@@ -562,11 +651,11 @@ function renderPoolStats() {
       </div>
       <div class="stat-card stat-card-mini">
         <h3>Pool at a glance</h3>
-        <div class="stat-line"><span>Brackets in</span><strong>${n}</strong></div>
-        <div class="stat-line"><span>Matches decided</span><strong>${decidedCount()}</strong></div>
-        <div class="stat-line"><span>Average score</span><strong>${avg.toFixed(1)}</strong></div>
-        <div class="stat-line"><span>Median / top</span><strong>${median} / ${board.length ? board[0].score : 0}</strong></div>
-        <div class="stat-line"><span>Chalk score</span><strong>${chalk}%</strong></div>
+        <div class="stat-line"><span>Brackets in</span><strong data-flip="pool:bracketsIn">${n}</strong></div>
+        <div class="stat-line"><span>Matches decided</span><strong data-flip="pool:decided">${decidedCount()}</strong></div>
+        <div class="stat-line"><span>Average score</span><strong data-flip="pool:avg">${avg.toFixed(1)}</strong></div>
+        <div class="stat-line"><span>Median / top</span><strong data-flip="pool:medianTop">${median} / ${board.length ? board[0].score : 0}</strong></div>
+        <div class="stat-line"><span>Chalk score</span><strong data-flip="pool:chalk">${chalk}%</strong></div>
       </div>
       <div class="stat-card stat-card-wide">
         <h3>Title picks by continent</h3>
@@ -574,6 +663,8 @@ function renderPoolStats() {
       </div>
     </div>
   `;
+
+  applyFlips(root);
 }
 
 function statBar(team, count, share) {

@@ -285,6 +285,42 @@ img.flag {
   min-height: 0;
 }
 
+/* Staged load reveal (leaderboard, first paint only — JS adds .reveal then
+   .revealed on the bracket region one frame later). Cells start hidden and ease
+   in; the per-round transition-delay, keyed off the stable round class, makes the
+   wallchart fan out R32 → R16 → QF → SF → Final. The emblem + round tags ride in
+   last with the Final. Reduced-motion users skip the whole thing (rule below +
+   the JS gate), so nothing ever starts hidden for them. */
+.bracket-region.reveal .sym-cell,
+.bracket-region.reveal .sym-emblem,
+.bracket-region.reveal .sym-round-tag { opacity: 0; transform: translateY(10px); }
+.bracket-region .sym-cell,
+.bracket-region .sym-emblem,
+.bracket-region .sym-round-tag { transition: opacity 0.45s ease, transform 0.45s ease; }
+.bracket-region.revealed .sym-cell,
+.bracket-region.revealed .sym-emblem,
+.bracket-region.revealed .sym-round-tag { opacity: 1; transform: none; }
+.bracket-region .sym-cell.sym-R32,
+.bracket-region .sym-round-tag[data-round="R32"] { transition-delay: 0s; }
+.bracket-region .sym-cell.sym-R16,
+.bracket-region .sym-round-tag[data-round="R16"] { transition-delay: 0.10s; }
+.bracket-region .sym-cell.sym-QF,
+.bracket-region .sym-round-tag[data-round="QF"]  { transition-delay: 0.20s; }
+.bracket-region .sym-cell.sym-SF,
+.bracket-region .sym-round-tag[data-round="SF"]  { transition-delay: 0.30s; }
+.bracket-region .sym-cell.sym-FINAL,
+.bracket-region .sym-round-tag[data-round="FINAL"],
+.bracket-region .sym-emblem { transition-delay: 0.40s; }
+
+/* Reduced motion: a CSS safety net beside the JS gate — never leave a cell
+   hidden, never animate the reel, even if the .reveal/.flip-go classes appear. */
+@media (prefers-reduced-motion: reduce) {
+  .bracket-region .sym-cell,
+  .bracket-region .sym-emblem,
+  .bracket-region .sym-round-tag { transition: none !important; opacity: 1 !important; transform: none !important; }
+  .flip-reel.flip-go { transition: none !important; transform: none !important; }
+}
+
 /* WC2026 emblem in the centre column. Spans only the top half of the centre
    column (set inline by the renderer) and centres within it, so its midpoint
    sits at ~25% of the column height — halfway between the top "Final" label and
@@ -614,6 +650,45 @@ textarea.json-box {
   pointer-events: none;
 }
 .lb-row:hover { border-color: var(--line-strong); background: rgba(212,168,67,0.05); }
+
+/* ---------- Podium tickets (ranks 1–3): a finish that looks earned ----------
+   A top-3 row isn't just a tinted digit — it reads as a medal-foil ticket: a
+   metallic seat-number stub, a faint medal wash across the stock, a glowing seat
+   number, and a soft colored lift off the page. Gold (champion) runs warmest and
+   brightest; silver/bronze step down in turn. Each medal sets its palette in
+   custom properties so one rule paints all three. Placed BEFORE :hover/.is-active
+   so the click-selected state still wins (it shares specificity → source order). */
+.lb-entry.medal-gold   { --medal: #f0c75e; --medal-wash: rgba(240,199,94,0.14); --medal-line: rgba(240,199,94,0.50); }
+.lb-entry.medal-silver { --medal: #e2e7ec; --medal-wash: rgba(214,221,227,0.10); --medal-line: rgba(214,221,227,0.42); }
+.lb-entry.medal-bronze { --medal: #d68a52; --medal-wash: rgba(205,145,91,0.13); --medal-line: rgba(205,145,91,0.44); }
+
+.lb-entry.medal-gold .lb-row,
+.lb-entry.medal-silver .lb-row,
+.lb-entry.medal-bronze .lb-row {
+  border-color: var(--medal-line);
+  background:
+    linear-gradient(180deg, var(--medal-wash), rgba(255,255,255,0) 62%),
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015));
+  box-shadow: 0 9px 24px -15px var(--medal);
+}
+/* The champion's ticket gets a slightly stronger glow + a hairline gold inset. */
+.lb-entry.medal-gold .lb-row {
+  box-shadow: inset 0 0 0 1px rgba(240,199,94,0.18), 0 11px 28px -14px var(--medal);
+}
+/* Foil seat-number stub: a metallic top-sheen over the medal wash, with the
+   perforation and the digit themselves lit in the medal colour. */
+.lb-entry.medal-gold .lb-rank,
+.lb-entry.medal-silver .lb-rank,
+.lb-entry.medal-bronze .lb-rank {
+  background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0) 50%), var(--medal-wash);
+  border-right-color: var(--medal-line);
+  text-shadow: 0 0 10px var(--medal);
+}
+/* Hover keeps its feedback on podium rows (higher specificity than base hover). */
+.lb-entry.medal-gold .lb-row:hover,
+.lb-entry.medal-silver .lb-row:hover,
+.lb-entry.medal-bronze .lb-row:hover { border-color: var(--medal); }
+
 /* Active = this person's bracket is the one currently shown in the canvas. */
 .lb-entry.is-active .lb-row {
   border-color: var(--gold-bright);
@@ -671,14 +746,79 @@ textarea.json-box {
 #bracket-canvas .bracket-region { padding: 0; min-height: 0; }
 /* Team-row sizing is now shared in the base .team-row rule (compact), so the
    predictor and this canvas render at identical dimensions — no override here. */
+/* Hero: the canvas header reads as a stadium scoreboard banner — a deep-pitch
+   panel under a thin gold rule, with the title and a featured "readout" (big
+   number + small label) sharing a baseline like a real scoreboard. The readout
+   sits in its own fenced cell (left divider); the hint is demoted to the right. */
 .canvas-head {
   flex: none;
-  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
-  margin-bottom: clamp(2px, 0.6vh, 8px);
+  display: flex; align-items: baseline; gap: clamp(12px, 1.6vw, 22px); flex-wrap: wrap;
+  margin-bottom: clamp(8px, 1.2vh, 14px);
+  padding: clamp(9px, 1.2vh, 15px) clamp(13px, 1.5vw, 22px);
+  background: linear-gradient(180deg, var(--pitch-deep), rgba(7,39,29,0.55));
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), var(--shadow);
 }
-.canvas-head .ch-title { font-family: var(--font-display); text-transform: uppercase; font-size: clamp(13px,1.4vw,18px); margin: 0; }
-.canvas-head .ch-score { font-family: var(--font-mono); color: var(--gold-bright); font-size: clamp(11px,1.1vw,14px); }
-.canvas-head .ch-hint { font-family: var(--font-mono); font-size: 11px; color: rgba(246,243,234,0.5); margin-left: auto; }
+.canvas-head .ch-title {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  font-size: clamp(22px, 2.8vw, 36px);
+  letter-spacing: 0.02em;
+  line-height: 0.95;
+  margin: 0;
+  color: var(--chalk);
+}
+/* The readout: featured stat + optional secondary line, fenced off by a divider. */
+.canvas-head .ch-score {
+  display: inline-flex; align-items: baseline; flex-wrap: wrap;
+  gap: clamp(8px, 1vw, 16px);
+  padding-left: clamp(12px, 1.5vw, 20px);
+  border-left: 1px solid var(--line-strong);
+}
+.ch-stat { display: inline-flex; align-items: baseline; gap: 7px; }
+.ch-stat-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: clamp(24px, 2.8vw, 36px);
+  line-height: 0.95;
+  color: var(--gold-bright);
+}
+.ch-stat-label {
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: clamp(10px, 1vw, 13px);
+  color: rgba(246,243,234,0.62);
+}
+.ch-stat-sec {
+  font-family: var(--font-mono);
+  font-size: clamp(11px, 1.1vw, 14px);
+  color: rgba(246,243,234,0.72);
+}
+.canvas-head .ch-hint { font-family: var(--font-mono); font-size: 11px; color: rgba(246,243,234,0.5); margin-left: auto; align-self: center; }
+
+/* Split-flap (Solari board) roll: a clipped one-line viewport over a two-cell
+   reel (old value above new); JS adds .flip-go to slide the reel up one cell,
+   then settles back to plain text. Inherits its target's font/size/color so the
+   number looks identical mid-roll. tabular-nums keeps digit width steady. */
+.flip-viewport {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  height: 1em;                 /* clip to a single line so only one cell shows */
+  line-height: 1em;
+  font-variant-numeric: tabular-nums;
+}
+.flip-reel { display: flex; flex-direction: column; }
+.flip-reel.flip-go { transform: translateY(-50%); transition: transform 0.36s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* Each cell is exactly one viewport-line tall; the reel is two → -50% lands on
+   the second (new) value precisely. Digits have no descenders, so 1em clips clean. */
+.flip-cell { display: block; height: 1em; line-height: 1em; }
+/* Steady digit columns wherever a score can roll. */
+.lb-score, .lb-rank { font-variant-numeric: tabular-nums; }
 
 /* The standings list and the pool-stat grid stack full-width (list on top,
    the 4-up stat cards below) so the cards get the whole page width — not a
@@ -732,15 +872,16 @@ body.on-leaderboard { overflow: auto; }
   gap: clamp(8px, 1vw, 14px);
 }
 
-/* Widescreen: pair the standings with the pool stats side-by-side instead of
-   stacking them, so the list doesn't stretch the full page width on large
-   desktops. Standings take a fixed-ish left column; the stat cards float to the
-   right as a 2-up grid (the world-map card still spans both via .stat-card-wide).
+/* Widescreen: split the lower zone into even halves — standings on the left,
+   pool stats on the right — so the list doesn't stretch the full page width on
+   large desktops. minmax(0,1fr) on both (not 1fr 1fr) so a long name/score can't
+   push one column past its half; it stays a true 50/50. The stat cards run 2-up
+   inside their half (the world-map card still spans both via .stat-card-wide).
    Below this width the lower zone stays stacked + full-width (the base rules);
    portrait phones are unaffected (they're never this wide in landscape terms). */
 @media (min-width: 1100px) {
   .on-leaderboard .lb-lower {
-    grid-template-columns: minmax(340px, 420px) 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);   /* even halves */
     align-items: start;          /* the two columns size their heights independently */
   }
   .lb-stats .stat-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1013,8 +1154,13 @@ footer.site-footer {
   .cont-chip { font-size: 14px; }
   #bracket-canvas-root .team-row { font-size: 13px; }
   #bracket-canvas-root .sym-R32 .team-row { font-size: 12px; }
-  .canvas-head .ch-title { font-size: 20px; }
-  .canvas-head .ch-score { font-size: 15px; }
+  /* Scoreboard hero on phones: the 1024px layout is scaled ~0.38x to the screen,
+     so size the readout up to stay legible and keep the banner proportionate. */
+  .canvas-head { padding: 12px 16px; gap: 14px; }
+  .canvas-head .ch-title { font-size: 30px; }
+  .ch-stat-num { font-size: 30px; }
+  .ch-stat-label { font-size: 14px; }
+  .ch-stat-sec { font-size: 15px; }
 
   /* Predictor: the landscape bracket sits in the top half, not the full height.
      Let the page FLOW (instead of the locked 100dvh frame) so the footer sits
