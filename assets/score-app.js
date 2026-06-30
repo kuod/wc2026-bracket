@@ -717,6 +717,42 @@ function renderUpdatedStamp() {
   el.textContent = `Results updated ${nice} · ${decided} ${plural(decided, "match", "matches")} decided`;
 }
 
+// ---- Live updates: hot-swap fresh results without a reload ------------------
+// GitHub Pages caches the <script src="results-data.js"> by URL, so neither a
+// phone refresh nor an open tab reliably picks up a freshly-committed results
+// file. version-check.js polls assets/version.json (cache:"no-store") and calls
+// this when results-data.js's generatedAt advances. We re-fetch results-data.js
+// under a cache-busting URL, let it overwrite window.WC2026_RESULTS, then re-run
+// the existing render path — the _flipCache split-flap animates the changes.
+
+// Re-inject results-data.js?v=<ts> and resolve true once window.WC2026_RESULTS
+// reflects a STRICTLY newer generatedAt than what we're showing (guards against
+// a brief version.json-vs-Pages CDN skew handing us a not-yet-updated file).
+// Resolves false (don't advance the "seen" version) on load error or stale body.
+function applyFreshResults(ts) {
+  return new Promise((resolve) => {
+    const s = document.createElement("script");
+    s.src = `assets/results-data.js?v=${encodeURIComponent(ts)}`;
+    s.onload = () => {
+      s.remove();
+      // Compare against the CURRENTLY rendered generatedAt (read here, not
+      // captured at call time) so a late-completing load can't render older
+      // results than what's already on screen.
+      const cur = (resultsMeta && resultsMeta.generatedAt) || "";
+      const fresh = (window.WC2026_RESULTS && window.WC2026_RESULTS.generatedAt) || "";
+      if (!fresh || (cur && fresh <= cur)) { resolve(false); return; }  // CDN lag served stale — retry next tick
+      loadResults();
+      renderBracketCanvas();
+      renderLeaderboard();
+      renderPoolStats();
+      renderUpdatedStamp();
+      resolve(true);
+    };
+    s.onerror = () => { s.remove(); resolve(false); };   // transient — retry next tick
+    document.head.appendChild(s);
+  });
+}
+
 // ---- Init -------------------------------------------------------------------
 
 async function initScorePage() {
@@ -742,5 +778,20 @@ async function initScorePage() {
     }
   } else {
     renderStatus("No Sheet URL configured — set SCRIPT_URL in assets/config.js.", "err");
+  }
+
+  // Watch for fresh results (hot-swap, no reload) and code pushes (reload once,
+  // else nudge). Seeded with the generatedAt we loaded so the first poll only
+  // fires on something genuinely newer.
+  if (typeof startVersionWatch === "function") {
+    startVersionWatch({
+      initialResultsVersion: (resultsMeta && resultsMeta.generatedAt) || null,
+      onResultsChanged: applyFreshResults,
+      onSiteChanged: (version) => {
+        if (!reloadOnceForVersion(version)) {
+          showUpdateNudge("Updated leaderboard available — refresh for the latest.");
+        }
+      }
+    });
   }
 }

@@ -1,0 +1,62 @@
+name: Stamp site version
+
+# Keeps assets/version.json's siteVersion (a content hash of the code/markup/
+# style files) and the HTML `?v=` cache-busters in sync whenever those source
+# files change on main. version-check.js polls version.json so open/cached pages
+# detect a code push and reload (leaderboard) or nudge (predictor).
+#
+# Self-terminating: stamp_version.py is idempotent, so the bot's own commit
+# recomputes identical output and commits nothing -> no infinite loop.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "index.html"
+      - "score.html"
+      - "assets/app.js"
+      - "assets/score-app.js"
+      - "assets/version-check.js"
+      - "assets/bracket-data.js"
+      - "assets/config.js"
+      - "assets/results-overrides.js"
+      - "assets/style.css"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to commit the regenerated version.json / HTML
+
+# Share the serialization group with update-results.yml so the two jobs that
+# push to main never race.
+concurrency:
+  group: site-commit
+  cancel-in-progress: false
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Stamp version.json + HTML ?v=
+        run: python3 tools/stamp_version.py
+
+      - name: Commit if the stamp changed
+        run: |
+          if git diff --quiet -- assets/version.json index.html score.html; then
+            echo "Version already current; nothing to commit."
+            exit 0
+          fi
+          git config user.name "wc2026-results-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add assets/version.json index.html score.html
+          git commit -m "Stamp site version"
+          # Another push may have landed since checkout; rebase before pushing.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push

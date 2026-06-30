@@ -25,9 +25,10 @@ on:
 permissions:
   contents: write   # needed to commit the regenerated results file
 
-# Never let two updater runs race on a push.
+# Serialize against BOTH this workflow and stamp-version.yml so the two jobs
+# that push to main never race (shared group).
 concurrency:
-  group: update-results
+  group: site-commit
   cancel-in-progress: false
 
 jobs:
@@ -45,14 +46,22 @@ jobs:
       - name: Regenerate results-data.js
         run: python3 tools/update_leaderboard.py
 
+      # Refresh version.json's resultsGeneratedAt so open leaderboards hot-swap
+      # the new results. (siteVersion is unchanged unless code changed, so this
+      # won't trigger a page reload — only a smooth in-place results update.)
+      - name: Stamp version.json
+        run: python3 tools/stamp_version.py
+
       - name: Commit if results changed
         run: |
-          if git diff --quiet -- assets/results-data.js; then
+          if git diff --quiet -- assets/results-data.js assets/version.json; then
             echo "No results change; nothing to commit."
             exit 0
           fi
           git config user.name "wc2026-results-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/results-data.js
+          git add assets/results-data.js assets/version.json
           git commit -m "Auto-update leaderboard results"
+          # Another push may have landed since checkout; rebase before pushing.
+          git pull --rebase origin "${GITHUB_REF_NAME}"
           git push

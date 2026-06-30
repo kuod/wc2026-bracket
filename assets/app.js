@@ -237,4 +237,14 @@ function initPredictorPage() {
   });
 
   render();
+
+  // Watch for code pushes (version-check.js polls version.json). The predictor
+  // doesn't render results, so it ignores results changes; on a code change we
+  // only NUDGE rather than auto-reload — picks may be mid-edit. (Drafts live in
+  // localStorage, so a refresh is safe, but a surprise reload is jarring.)
+  if (typeof startVersionWatch === "function") {
+    startVersionWatch({
+      onSiteChanged: () => showUpdateNudge("A new version is available — refresh when you're ready.")
+    });
+  }
 }
