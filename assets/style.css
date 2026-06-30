@@ -323,13 +323,16 @@ img.flag {
   align-items: center;
   gap: clamp(4px, 0.5vw, 9px);
   width: 100%;
-  padding: clamp(3px, 0.6vh, 8px) clamp(5px, 0.6vw, 11px);
   background: rgba(255,255,255,0.03);
   border: 1.5px solid var(--line-strong);
   border-radius: 6px;
   color: var(--chalk);
   font-family: var(--font-body);
-  font-size: clamp(10px, 0.92vw, 14px);
+  /* Compact sizing shared by BOTH the predictor and the leaderboard canvas, so
+     switching Predict <-> Leaderboard shows no size jump (the two render with
+     the same renderSymmetricBracket; only this sizing used to diverge). */
+  font-size: clamp(10px, 0.85vw, 13px);
+  padding: clamp(3px, 0.5vh, 7px) clamp(5px, 0.6vw, 10px);
   font-weight: 600;
   cursor: pointer;
   text-align: left;
@@ -401,7 +404,7 @@ img.flag {
 .sym-FINAL::after  { left: 100%; }
 
 /* ---------- Compact match cards for the R32 outer columns ---------- */
-.sym-R32 .team-row { font-size: clamp(9px, 0.85vw, 13px); padding: clamp(3px,0.5vh,6px) clamp(4px,0.5vw,8px); }
+.sym-R32 .team-row { font-size: clamp(9px, 0.8vw, 12px); padding: clamp(3px,0.5vh,6px) clamp(4px,0.5vw,8px); }
 
 /* ---------- Read-only pick states (leaderboard person view) ---------- */
 .team-row.pick-correct { border-color: var(--gold); background: rgba(212,168,67,0.16); }
@@ -655,7 +658,8 @@ textarea.json-box {
    region scrolls internally rather than letting cards overlap or clip. */
 #bracket-canvas { min-height: 0; display: flex; flex-direction: column; }
 #bracket-canvas .bracket-region { padding: 0; min-height: 0; }
-#bracket-canvas .team-row { font-size: clamp(10px, 0.85vw, 13px); padding: clamp(3px,0.5vh,7px) clamp(5px,0.6vw,10px); }
+/* Team-row sizing is now shared in the base .team-row rule (compact), so the
+   predictor and this canvas render at identical dimensions — no override here. */
 .canvas-head {
   flex: none;
   display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
@@ -665,11 +669,14 @@ textarea.json-box {
 .canvas-head .ch-score { font-family: var(--font-mono); color: var(--gold-bright); font-size: clamp(11px,1.1vw,14px); }
 .canvas-head .ch-hint { font-family: var(--font-mono); font-size: 11px; color: rgba(246,243,234,0.5); margin-left: auto; }
 
+/* The standings list and the pool-stat grid stack full-width (list on top,
+   the 4-up stat cards below) so the cards get the whole page width — not a
+   cramped side column. */
 .lb-lower {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.4fr);
-  gap: clamp(8px, 1.4vw, 18px);
+  grid-template-columns: 1fr;
+  gap: clamp(16px, 2.4vh, 28px);
 }
 .lb-listwrap { min-height: 0; display: flex; flex-direction: column; }
 .lb-listwrap > .lb-status, .lb-listwrap > .results-stamp { flex: none; }
@@ -711,10 +718,12 @@ body.on-leaderboard { overflow: auto; }
 
 /* Per-person expanded bracket */
 
-/* Pool stats */
+/* Pool stats — a 4-column card grid across the full page width (the cards used
+   to auto-fit into a narrow side column). Collapses to 2 columns on portrait
+   phones so each card stays legible. */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: clamp(8px, 1vw, 14px);
 }
 .stat-card {
@@ -732,7 +741,7 @@ body.on-leaderboard { overflow: auto; }
   margin: 0 0 10px;
   color: var(--chalk);
 }
-.stat-bar { display: grid; grid-template-columns: minmax(90px, 1.2fr) 2fr auto; align-items: center; gap: 10px; margin-bottom: 8px; }
+.stat-bar { display: grid; grid-template-columns: minmax(74px, 0.85fr) 3fr auto; align-items: center; gap: 10px; margin-bottom: 8px; }
 .stat-bar-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stat-bar-track { height: 8px; background: rgba(255,255,255,0.08); border-radius: 100px; overflow: hidden; }
 .stat-bar-fill { display: block; height: 100%; background: var(--gold-bright); border-radius: 100px; }
@@ -743,19 +752,10 @@ body.on-leaderboard { overflow: auto; }
 .stat-card-mini .stat-line strong { font-family: var(--font-mono); color: var(--gold-bright); }
 
 /* "Title picks by continent": a wide card with percentage chips floated over a
-   faint world map, plus a sorted bar list below as the fallback read. It should
-   span two grid columns ONLY when the grid actually has room for two — otherwise
-   `span 2` would force the auto-fit grid to materialise a cramped second track
-   (squeezing the other six cards) instead of collapsing to one column. The grid
-   width (not the viewport) is what decides this — the stats zone is a narrow
-   side column on desktop but full width when the dashboard stacks — so gate the
-   span on a container query of the grid's own width (2×220px min + gap). */
-#pool-stats-root { container-type: inline-size; }
-.stat-card-wide { grid-column: span 1; }
-@container (min-width: 454px) {
-  .stat-card-wide { grid-column: span 2; }
-}
-.continent-map { position: relative; width: 100%; aspect-ratio: 1198 / 653; margin-bottom: 10px; }
+   faint world map, plus a sorted bar list below as the fallback read. The world
+   map wants width, so it spans two of the four grid columns. */
+.stat-card-wide { grid-column: span 2; }
+.continent-map { position: relative; width: 100%; aspect-ratio: 1022 / 502; margin-bottom: 10px; }
 .continent-map img { width: 100%; height: 100%; object-fit: contain; opacity: 0.5; }
 .cont-chip {
   position: absolute;
@@ -781,17 +781,22 @@ body.on-leaderboard { overflow: auto; }
 .muted { color: rgba(246,243,234,0.45); }
 
 footer.site-footer {
-  margin-top: 70px;
-  padding-top: 20px;
+  flex: none;
+  padding: 10px 16px;
   border-top: 1px solid var(--line);
   font-family: var(--font-mono);
   font-size: 11px;
-  color: rgba(246,243,234,0.35);
+  color: rgba(246,243,234,0.4);
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
+.footer-heart { color: var(--gold-bright); font-size: 1.1em; }
+/* The leaderboard page flows/scrolls, so its footer just sits at the end with a
+   little breathing room above. */
+.on-leaderboard footer.site-footer { margin-top: clamp(24px, 4vh, 48px); }
 
 .submit-status-ok {
   color: var(--gold-bright);
@@ -951,4 +956,54 @@ footer.site-footer {
 @media (max-height: 560px) {
   .topbar { padding-top: 6px; padding-bottom: 6px; }
   .sym-labels { margin-bottom: 3px; }
+}
+
+/* ---------- Phone (portrait) tweaks ----------
+   The viewport meta pins phones to a 1024px-wide DESKTOP layout (Chrome
+   "Desktop site" style), so width media queries can't tell a phone from a
+   desktop — both report 1024px. Orientation can: a phone held upright is
+   portrait; every desktop is landscape. So `orientation: portrait` is our
+   "phone-ish" hook, used to (a) drop the leaderboard bracket below the
+   standings, (b) tighten the stat grid to 2 columns, and (c) cap the predictor
+   bracket to half the screen (it's a landscape chart — a half-height band reads
+   better than a full-height stretch). */
+@media (orientation: portrait) {
+  /* Leaderboard: lead with the standings + stats; bracket floats to the bottom. */
+  .on-leaderboard .lb-lower { order: 1; }
+  .on-leaderboard #bracket-canvas { order: 2; }
+
+  /* Two-up stat cards stay legible at phone width; the world-map card keeps its
+     2-column span, so it fills the row. */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-card-wide { grid-column: span 2; }
+
+  /* Bump the primary reading text on phones. The 1024px desktop layout is scaled
+     down to the physical screen (~0.38x on a 390px phone), so default sizes read
+     tiny; larger type here keeps the standings + stat cards legible without a
+     pinch-zoom. Bracket rows (secondary, at the page bottom) get a gentler bump. */
+  .lb-name { font-size: 20px; }
+  .lb-score { font-size: 18px; }
+  .lb-rank { font-size: 18px; }
+  .lb-correct, .lb-champ { font-size: 15px; }
+  .stat-card h3 { font-size: 16px; }
+  .stat-line { font-size: 16px; }
+  .stat-bar-label { font-size: 15px; }
+  .stat-bar-val { font-size: 14px; }
+  .cont-chip { font-size: 14px; }
+  #bracket-canvas-root .team-row { font-size: 13px; }
+  #bracket-canvas-root .sym-R32 .team-row { font-size: 12px; }
+  .canvas-head .ch-title { font-size: 20px; }
+  .canvas-head .ch-score { font-size: 15px; }
+
+  /* Predictor: the landscape bracket sits in the top half, not the full height.
+     Let the page FLOW (instead of the locked 100dvh frame) so the footer sits
+     right under the half-height bracket rather than leaving a tall empty void
+     below it. */
+  body:not(.on-leaderboard) { overflow: auto; }
+  body:not(.on-leaderboard) .page { height: auto; min-height: 0; overflow: visible; }
+  body:not(.on-leaderboard) .bracket-region {
+    max-height: 52dvh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
 }

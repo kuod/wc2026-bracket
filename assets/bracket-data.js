@@ -83,6 +83,21 @@ const TEAM_CONTINENT = {
   "Australia": "Oceania"
 };
 
+// Approximate pre-tournament FIFA world ranking per team (lower = stronger).
+// Used only to flag UPSETS in the leaderboard's "Most Shocking" stat: a result
+// is an upset when the winner's rank number is HIGHER (weaker) than the loser's.
+// These are the official FIFA rankings of the 32 R32 teams; gaps in the numbers
+// are expected (the full FIFA table includes nations that didn't reach the R32).
+const TEAM_RANK = {
+  "Argentina": 1, "France": 2, "Spain": 3, "England": 4, "Brazil": 5,
+  "Morocco": 6, "Netherlands": 7, "Portugal": 8, "Mexico": 9, "Belgium": 10,
+  "Colombia": 11, "Germany": 12, "Croatia": 13, "United States": 15,
+  "Switzerland": 16, "Japan": 17, "Senegal": 18, "Austria": 22, "Norway": 23,
+  "Ecuador": 24, "Egypt": 26, "Australia": 28, "Algeria": 29, "Ivory Coast": 30,
+  "Canada": 32, "Sweden": 36, "Paraguay": 37, "DR Congo": 41, "South Africa": 54,
+  "Bosnia and Herzegovina": 61, "Cape Verde": 64, "Ghana": 65
+};
+
 // TheSportsDB (and other feeds) name some teams differently from our canonical
 // display names. Map their spelling -> ours. Keys are matched after running
 // normalizeTeam() on both sides, so accents/case/punctuation don't matter here.
@@ -213,6 +228,13 @@ function shortCode(team) {
 // The continent a team belongs to (see TEAM_CONTINENT), or null if unmapped.
 function continentOf(team) {
   return TEAM_CONTINENT[team] || null;
+}
+
+// The team's FIFA ranking number (lower = stronger). Unmapped teams get a large
+// sentinel so they're treated as the weakest side when flagging upsets.
+function rankOf(team) {
+  const r = TEAM_RANK[team];
+  return (typeof r === "number") ? r : 999;
 }
 
 // A small inline-SVG glyph per continent: a faint globe with the continent's

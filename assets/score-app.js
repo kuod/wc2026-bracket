@@ -80,6 +80,24 @@ function decidedCount() {
   return Object.keys(actualResults).length;
 }
 
+// The furthest round the tournament has reached: the latest round (in bracket
+// order) with at least one decided match. Defaults to "R32" before any results
+// are in. Lets the pool-stat cards stay topical — "Most divisive R16",
+// "Most Shocking QF" — as the bracket advances, instead of being frozen on R32.
+function currentRound() {
+  let latest = ROUNDS[0].key;
+  for (const round of ROUNDS) {
+    if (round.matches.some(m => actualResults[m.id])) latest = round.key;
+  }
+  return latest;
+}
+
+// A short, human label for a round key, for stat-card titles ("R32", "R16",
+// "QF", "SF", "Final"). Mirrors the keys used elsewhere; only FINAL is prettied.
+function roundShortLabel(key) {
+  return key === "FINAL" ? "Final" : key;
+}
+
 // ---- Predictions: auto-fetched from the Google Sheet ------------------------
 
 async function fetchPredictionsFromSheet(url) {
@@ -363,6 +381,12 @@ function renderPoolStats() {
 
   const n = predictions.length;
 
+  // The furthest round reached drives the round-aware cards below, so they stay
+  // topical as the tournament advances (R32 → R16 → … → Final).
+  const curRound = currentRound();
+  const curRoundLabel = roundShortLabel(curRound);
+  const curRoundMatches = (ROUNDS.find(r => r.key === curRound) || ROUNDS[0]).matches;
+
   // 1) Champion distribution (FINAL pick).
   const champs = tally("FINAL");
   const champBars = champs.slice(0, 5).map(c => statBar(c.team, c.count, c.share)).join("") ||
@@ -384,17 +408,19 @@ function renderPoolStats() {
     finalPairs[key].count += 1;
   }
   const topFinals = Object.entries(finalPairs)
+    .filter(([, info]) => info.count > 1)   // only matchups more than one person backs
     .sort((x, y) => y[1].count - x[1].count || x[0].localeCompare(y[0]))   // count, then pair name
     .slice(0, 4);
   const finalHtml = topFinals.length
     ? topFinals.map(([pair, info]) =>
-        `<div class="stat-line"><strong title="${escapeAttr(pair)}">${escapeHtml(shortCode(info.a))} ‹vs› ${escapeHtml(shortCode(info.b))}</strong><span class="muted">${info.count} of ${n}</span></div>`
+        // Flags flank the codes: <flag> ARG ‹vs› FRA <flag>.
+        `<div class="stat-line"><strong title="${escapeAttr(pair)}">${flag(info.a)} ${escapeHtml(shortCode(info.a))} ‹vs› ${escapeHtml(shortCode(info.b))} ${flag(info.b)}</strong><span class="muted">${info.count} of ${n}</span></div>`
       ).join("")
     : `<p class="muted">Not enough finalist picks yet.</p>`;
 
-  // 3) Most divisive opener — R32 match closest to an even split.
+  // 3) Most divisive — the current round's match closest to an even split.
   let divisive = null;
-  for (const m of ROUNDS[0].matches) {
+  for (const m of curRoundMatches) {
     const t = tally(m.id);
     if (t.length < 2) continue;
     const topShare = t[0].share;
@@ -405,28 +431,25 @@ function renderPoolStats() {
       divisive.t.slice(0, 2).map(c => statBar(c.team, c.count, c.share)).join("")
     : `<p class="muted">No picks yet.</p>`;
 
-  // 4) Boldest correct calls — a correct pick that ≤15% of the pool made.
-  const contrarian = [];
-  for (const round of ROUNDS) {
-    for (const m of round.matches) {
-      const actual = actualResults[m.id];
-      if (!actual) continue;
-      const t = tally(m.id);
-      const winnerStat = t.find(x => x.team === actual);
-      if (winnerStat && winnerStat.share > 0 && winnerStat.share <= 0.15) {
-        for (const p of predictions) {
-          if (p.picks[m.id] === actual) {
-            contrarian.push({ who: p.predictor, team: actual, matchId: m.id, count: winnerStat.count });
-          }
-        }
-      }
-    }
+  // 4) Most Shocking — upsets in the current round: the weaker team (higher FIFA
+  //    rank number) beating the stronger one. Sorted by the size of the ranking
+  //    gap so the biggest stunner leads.
+  const upsets = [];
+  for (const m of curRoundMatches) {
+    const winner = actualResults[m.id];
+    if (!winner) continue;
+    const [teamA, teamB] = actualMatchTeams(curRound, m);
+    if (!teamA || !teamB) continue;
+    const loser = winner === teamA ? teamB : teamA;
+    const gap = rankOf(winner) - rankOf(loser);   // >0 means a weaker side won
+    if (gap > 0) upsets.push({ winner, loser, gap, matchId: m.id });
   }
-  const contrarianHtml = contrarian.length
-    ? contrarian.slice(0, 6).map(c =>
-        `<div class="stat-line"><span>${escapeHtml(c.who)} called ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
+  upsets.sort((a, b) => b.gap - a.gap || a.matchId.localeCompare(b.matchId));
+  const upsetHtml = upsets.length
+    ? upsets.slice(0, 6).map(u =>
+        `<div class="stat-line"><span>${flag(u.winner)} <strong title="${escapeAttr(u.winner)}">${escapeHtml(shortCode(u.winner))}</strong> beat ${flag(u.loser)} <strong title="${escapeAttr(u.loser)}">${escapeHtml(shortCode(u.loser))}</strong></span><span class="muted">${u.matchId}</span></div>`
       ).join("")
-    : `<p class="muted">No bold correct calls yet — check back as results come in.</p>`;
+    : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
 
   // 5) Lone wolves — picks that exactly ONE person in the pool made (the most
   //    contrarian standing calls). Works before any results are in.
@@ -483,14 +506,15 @@ function renderPoolStats() {
     .map(([name, count]) => ({ name, count, share: count / contTotal }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   // Each continent's centroid on the world-mini.svg (dot-matrix) viewBox, as
-  // map %. Measured from the generated dot positions, not eyeballed.
+  // map %. Emitted by tools/gen_dotmap.py (mean of each continent's dots in the
+  // Winkel-Tripel projection) — regenerate both together, never eyeball these.
   const CONTINENT_POS = {
-    "North America": { left: 19, top: 28 },
-    "South America": { left: 29, top: 73 },
-    "Europe":        { left: 54, top: 25 },
-    "Africa":        { left: 55, top: 55 },
-    "Asia":          { left: 75, top: 30 },
-    "Oceania":       { left: 86, top: 77 }
+    "North America": { left: 17, top: 19 },
+    "South America": { left: 23, top: 70 },
+    "Europe":        { left: 65, top: 15 },
+    "Africa":        { left: 50, top: 55 },
+    "Asia":          { left: 72, top: 36 },
+    "Oceania":       { left: 90, top: 79 }
   };
   const continentHtml = contTotal
     ? `<div class="continent-map">
@@ -515,12 +539,12 @@ function renderPoolStats() {
         ${finalHtml}
       </div>
       <div class="stat-card">
-        <h3>Most divisive opener</h3>
+        <h3>Most divisive ${curRoundLabel}</h3>
         ${divisiveHtml}
       </div>
       <div class="stat-card">
-        <h3>Boldest correct calls</h3>
-        ${contrarianHtml}
+        <h3>Most Shocking ${curRoundLabel}</h3>
+        ${upsetHtml}
       </div>
       <div class="stat-card">
         <h3>Lone wolves</h3>
