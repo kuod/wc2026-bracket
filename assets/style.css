@@ -749,11 +749,12 @@ textarea.json-box {
 /* Hero: the canvas header reads as a stadium scoreboard banner — a deep-pitch
    panel under a thin gold rule, with the title and a featured "readout" (big
    number + small label) sharing a baseline like a real scoreboard. The readout
-   sits in its own fenced cell (left divider); the hint is demoted to the right. */
+   sits in its own fenced cell (left divider); the hint is demoted to the right.
+   It's a top-level dashboard band now (not nested in #bracket-canvas), so the
+   dashboard's flex `gap` owns its spacing — no margin of its own. */
 .canvas-head {
   flex: none;
   display: flex; align-items: baseline; gap: clamp(12px, 1.6vw, 22px); flex-wrap: wrap;
-  margin-bottom: clamp(8px, 1.2vh, 14px);
   padding: clamp(9px, 1.2vh, 15px) clamp(13px, 1.5vw, 22px);
   background: linear-gradient(180deg, var(--pitch-deep), rgba(7,39,29,0.55));
   border: 1px solid var(--line);
@@ -842,7 +843,7 @@ textarea.json-box {
    the bracket and buried the standings. Instead, the leaderboard PAGE flows and
    scrolls naturally: the zones stack and breathe. Scoped to body.on-leaderboard
    so the predictions page is untouched. Phones reorder + resize these in the
-   ≤820px block below (standings first, bracket a compact tail). */
+   ≤820px block below (hero first, then standings, bracket a compact tail). */
 body.on-leaderboard { overflow: auto; }
 .on-leaderboard .page { height: auto; min-height: 100dvh; overflow: visible; }
 .on-leaderboard .lb-dashboard {
@@ -917,7 +918,12 @@ body.on-leaderboard { overflow: auto; }
    faint world map, plus a sorted bar list below as the fallback read. The world
    map wants width, so it spans two of the four grid columns. */
 .stat-card-wide { grid-column: span 2; }
-.continent-map { position: relative; width: 100%; aspect-ratio: 1022 / 502; margin-bottom: 10px; }
+/* The dot map is a framed artifact, not wallpaper: inset + centered so it reads
+   as one balanced element against the bar list below, with calm air around it.
+   Shrink the ELEMENT (max-width), never pad it — the % chips are positioned
+   against this box, so element/img/chip space must scale together or chips drift
+   off their dots. No border by design: the dots define their own silhouette. */
+.continent-map { position: relative; width: 100%; max-width: 80%; aspect-ratio: 1022 / 502; margin: 6px auto 16px; }
 .continent-map img { width: 100%; height: 100%; object-fit: contain; opacity: 0.5; }
 .cont-chip {
   position: absolute;
@@ -926,7 +932,7 @@ body.on-leaderboard { overflow: auto; }
   align-items: center;
   gap: 4px;
   font-family: var(--font-mono);
-  font-size: clamp(10px, 0.9vw, 13px);
+  font-size: clamp(11px, 1vw, 14px);
   line-height: 1;
   color: var(--chalk);
   background: rgba(11, 18, 14, 0.7);
@@ -936,7 +942,9 @@ body.on-leaderboard { overflow: auto; }
   white-space: nowrap;
 }
 .cont-chip.leader { color: var(--gold-bright); border-color: var(--gold); }
-.cont-chip b { font-weight: 700; }
+/* The % is the chip's payload — set it a notch larger than its glyph so the
+   number is what reads first. */
+.cont-chip b { font-weight: 700; font-size: 1.1em; }
 /* Inline-SVG continent glyph, sized to the surrounding text (chips + bar list). */
 .cont-glyph { width: 1.05em; height: 1.05em; flex: none; }
 
@@ -1079,17 +1087,18 @@ footer.site-footer {
   .topbar { flex-wrap: wrap; gap: 8px 12px; }
   .topbar .topbar-tools { width: 100%; justify-content: flex-start; }
 
-  /* Leaderboard on phones: lead with what matters on a small screen — the
-     ranked standings, then the factoid cards — and demote the bracket to a
-     compact tail. The page itself flows/scrolls (from the shared on-leaderboard
-     rules above), so there's no nested scroll. CSS `order` reorders the zones
-     without touching the HTML (desktop keeps bracket-first). */
+  /* Leaderboard on phones: the LIVE RESULTS hero always leads (the page's
+     headline on every viewport), then the ranked standings + factoid cards,
+     then the bracket as a compact tail. The page flows/scrolls (shared
+     on-leaderboard rules above), so there's no nested scroll. CSS `order`
+     reorders the zones without touching the HTML. */
   .on-leaderboard .lb-dashboard { gap: clamp(14px, 3vh, 24px); }
+  .on-leaderboard .canvas-head { order: 1; }      /* hero always first / at top */
   .on-leaderboard .lb-lower {
-    order: 1;                       /* standings + factoids first */
+    order: 2;                       /* standings + factoids next */
     display: flex; flex-direction: column; gap: clamp(14px, 3vh, 24px);
   }
-  .on-leaderboard #bracket-canvas { order: 2; }   /* bracket last */
+  .on-leaderboard #bracket-canvas { order: 3; }   /* bracket last */
   .on-leaderboard .lb-list { overflow: visible; }
   /* The bracket is now secondary, so cap it to half the viewport: it's a
      glanceable, scroll-into element rather than a wall that buries the list. */
@@ -1130,9 +1139,11 @@ footer.site-footer {
    bracket to half the screen (it's a landscape chart — a half-height band reads
    better than a full-height stretch). */
 @media (orientation: portrait) {
-  /* Leaderboard: lead with the standings + stats; bracket floats to the bottom. */
-  .on-leaderboard .lb-lower { order: 1; }
-  .on-leaderboard #bracket-canvas { order: 2; }
+  /* Leaderboard: the LIVE RESULTS hero always leads at the top, then the
+     standings + stats, then the bracket as the tail. */
+  .on-leaderboard .canvas-head { order: 1; }
+  .on-leaderboard .lb-lower { order: 2; }
+  .on-leaderboard #bracket-canvas { order: 3; }
 
   /* Two-up stat cards stay legible at phone width; the world-map card keeps its
      2-column span, so it fills the row. */
@@ -1151,7 +1162,7 @@ footer.site-footer {
   .stat-line { font-size: 16px; }
   .stat-bar-label { font-size: 15px; }
   .stat-bar-val { font-size: 14px; }
-  .cont-chip { font-size: 14px; }
+  .cont-chip { font-size: 16px; }
   #bracket-canvas-root .team-row { font-size: 13px; }
   #bracket-canvas-root .sym-R32 .team-row { font-size: 12px; }
   /* Scoreboard hero on phones: the 1024px layout is scaled ~0.38x to the screen,

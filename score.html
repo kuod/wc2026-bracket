@@ -39,14 +39,19 @@
 
   <main class="lb-dashboard">
 
+    <!-- Hero scoreboard banner — its own top-level band so it reads as the page's
+         headline, not a label glued to the bracket. It leads as the first item on
+         every viewport (desktop by source order; phones pin it first via CSS
+         `order` — see the portrait / ≤820px blocks in style.css). -->
+    <div class="canvas-head">
+      <h2 class="ch-title" id="canvas-title">Live Results</h2>
+      <span class="ch-score" id="canvas-score"></span>
+      <span class="ch-hint" id="canvas-hint">Click a name below to see their bracket · click again for live results</span>
+    </div>
+
     <!-- The persistent bracket canvas: shows real results by default, morphs to
          a selected person's picks when their row is clicked. -->
     <section id="bracket-canvas">
-      <div class="canvas-head">
-        <h2 class="ch-title" id="canvas-title">Live Results</h2>
-        <span class="ch-score" id="canvas-score"></span>
-        <span class="ch-hint" id="canvas-hint">Click a name below to see their bracket · click again for live results</span>
-      </div>
       <div class="bracket-region" id="bracket-canvas-root"><!-- rendered by score-app.js --></div>
     </section>
 
