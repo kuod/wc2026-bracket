@@ -533,20 +533,14 @@ function renderCanvasHead(pred, hasConsensus) {
   const score = document.getElementById("canvas-score");
   if (!title || !score) return;
 
-  // The projection legend lives only in the live-results view, and only once a
-  // consensus is actually drawn. Managed here (not in static HTML) so it appears
-  // and disappears with the view it explains.
-  let note = document.getElementById("canvas-proj-note");
-  if (head && !pred && hasConsensus) {
-    if (!note) {
-      note = document.createElement("p");
-      note.id = "canvas-proj-note";
-      note.className = "canvas-proj-note";
-      head.appendChild(note);
-    }
-    note.innerHTML = `<b>Dashed</b> = pool projection · the score-weighted favourite for matches still to come`;
-  } else if (note) {
-    note.remove();
+  // The projection legend sits UNDER the bracket (its static element lives in
+  // score.html), shown only in the live-results view and only once a consensus
+  // is actually drawn — so it appears and disappears with the marks it explains.
+  const note = document.getElementById("canvas-proj-note");
+  if (note) {
+    const show = !pred && hasConsensus;
+    note.hidden = !show;
+    if (show) note.innerHTML = `<b>Dashed</b> = pool projection · the score-weighted favourite for matches still to come`;
   }
 
   if (pred) {

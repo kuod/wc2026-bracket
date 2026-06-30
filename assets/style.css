@@ -379,6 +379,18 @@ img.flag {
   transition: all 0.12s ease;
 }
 .team-row .team-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Three-letter country codes read as a stadium ticker: monospace everywhere
+   they appear — bracket cards (.team-name, always a code or "TBD"), the
+   ranked-list champion column (.lb-team), the pool-stat bars (.stat-bar-label),
+   and the "→ MAR" actual-winner tag (.pick-actual) — so the codes line up with
+   the mono numerals already used for ranks, scores and shares around them. */
+.team-row .team-name,
+.lb-team,
+.stat-bar-label,
+.team-row .pick-actual {
+  font-family: var(--font-mono);
+}
 .team-row .pick-dot {
   width: 8px; height: 8px; border-radius: 50%;
   border: 1.5px solid var(--line-strong);
@@ -483,12 +495,17 @@ img.flag {
   opacity: 0.85;
 }
 
-/* The one-line legend that explains the dashed marks, sat under the hero head. */
+/* The one-line legend that explains the dashed marks, sat UNDER the bracket as a
+   caption. Centred and quiet so it reads as a footnote to the wallchart, not a
+   header. [hidden] (set by score-app.js off the live view) keeps it out of flow. */
 .canvas-proj-note {
-  margin: 4px 0 0;
+  margin: 10px 0 0;
+  text-align: center;
+  font-family: var(--font-mono);
   font-size: clamp(10px, 0.8vw, 12px);
   color: rgba(246, 243, 234, 0.5);
 }
+.canvas-proj-note[hidden] { display: none; }
 .canvas-proj-note b { color: rgba(212, 168, 67, 0.8); font-weight: 700; }
 
 /* ---------- Form fields ---------- */
