@@ -13,7 +13,7 @@ copy-paste-ready CONTINENT_POS block for assets/score-app.js, where percentage
 chips float over the map.
 
 Render contract this MUST preserve (consumed by style.css + score-app.js):
-  - viewBox stays "0 0 1198 653"  (style.css `.continent-map { aspect-ratio }`)
+  - SVG viewBox and style.css `.continent-map { aspect-ratio }` stay paired
   - <style>circle{r:3.0px}</style> + a single <g fill="#f6f3ea"> of <circle>s
   - dots sorted row-major (cy, then cx) for stable diffs
 
@@ -31,7 +31,7 @@ import cartopy.io.shapereader as shpreader
 import numpy as np
 import shapely
 from pyproj import CRS, Transformer
-from shapely.geometry import box
+from shapely.geometry import Point, box
 from shapely.ops import transform as shp_transform, unary_union
 from shapely.prepared import prep
 
@@ -158,6 +158,9 @@ def trim_outliers(tagged, spacing, gap_cells=4):
     than `gap_cells` empty cells is pruned — a geography-agnostic "crop to
     content" that also catches any future stray speck.
     """
+    if not tagged:
+        return []
+
     gap = gap_cells * spacing
 
     def keep_range(vals):
@@ -177,7 +180,6 @@ def trim_outliers(tagged, spacing, gap_cells=4):
 def classify_dots(dots, fit, cont_unions):
     """Tag each dot with its continent (or None), tested in projected space."""
     prepared = {name: prep(geom) for name, geom in cont_unions.items()}
-    from shapely.geometry import Point
     tagged = []
     for cx, cy in dots:
         X, Y = px_to_proj(float(cx), float(cy), fit)
@@ -268,8 +270,8 @@ def main():
     land_proj = load_land_union(args.resolution, args.lat_min, args.lon_min)
     cont_unions = load_continent_unions(args.resolution, args.lat_min, args.lon_min)
 
-    # An over-tall scratch viewBox to sample on; the real box is cropped to the
-    # surviving dots below, so this height just needs to be generous.
+    # First fit the projected land into the requested width, sample that grid,
+    # then crop again to the surviving dot cloud after outlier trim.
     fit = compute_fit(land_proj.bounds, args.viewbox_w, args.pad)
     raw = generate_dots(land_proj, fit, args.viewbox_w, fit[5], args.spacing)
 

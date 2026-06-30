@@ -358,15 +358,6 @@ img.flag {
   justify-content: center;
 }
 
-.vs-divider {
-  align-self: center;
-  font-family: var(--font-mono);
-  font-size: clamp(7px, 0.6vw, 9px);
-  letter-spacing: 0.08em;
-  color: rgba(246,243,234,0.3);
-  margin: -1px 0;
-}
-
 /* ---------- Connector elbows ---------- */
 /* Each match that draws from two feeders gets a "[" (left half) or "]" (right
    half) bracket spanning the gap to its feeder column. Because the grid row-span
@@ -410,7 +401,6 @@ img.flag {
 .team-row.pick-correct { border-color: var(--gold); background: rgba(212,168,67,0.16); }
 .team-row.pick-wrong   { border-color: rgba(179,67,43,0.6); background: rgba(179,67,43,0.10); }
 .team-row.pick-wrong .team-name { text-decoration: line-through; text-decoration-color: rgba(179,67,43,0.8); color: rgba(246,243,234,0.6); }
-.team-row.pick-pending { opacity: 0.65; cursor: default; }
 .team-row .pick-mark { flex: none; font-family: var(--font-mono); font-size: clamp(9px, 0.8vw, 12px); width: 12px; text-align: center; }
 .team-row.pick-correct .pick-mark { color: var(--gold-bright); }
 .team-row.pick-wrong .pick-mark { color: var(--red-card); }
@@ -712,12 +702,6 @@ body.on-leaderboard { overflow: auto; }
   .on-leaderboard #bracket-canvas .bracket-region { height: min(80vh, 880px); overflow: visible; }
 }
 
-.lb-detail { /* kept as a no-op hook; inline expand removed in favor of canvas */
-  display: none;
-}
-
-/* Per-person expanded bracket */
-
 /* Pool stats — a 4-column card grid across the full page width (the cards used
    to auto-fit into a narrow side column). Collapses to 2 columns on portrait
    phones so each card stays legible. */
@@ -750,6 +734,8 @@ body.on-leaderboard { overflow: auto; }
 .stat-line:last-child { border-bottom: none; }
 .stat-sub { font-family: var(--font-mono); font-size: 11px; margin-bottom: 8px; }
 .stat-card-mini .stat-line strong { font-family: var(--font-mono); color: var(--gold-bright); }
+/* Fire flames after a Most-Shocking upset, sized to the ranking gap (set in JS). */
+.upset-fire { margin-left: 4px; font-size: 0.85em; letter-spacing: -1px; white-space: nowrap; }
 
 /* "Title picks by continent": a wide card with percentage chips floated over a
    faint world map, plus a sorted bar list below as the fallback read. The world

@@ -446,9 +446,12 @@ function renderPoolStats() {
   }
   upsets.sort((a, b) => b.gap - a.gap || a.matchId.localeCompare(b.matchId));
   const upsetHtml = upsets.length
-    ? upsets.slice(0, 6).map(u =>
-        `<div class="stat-line"><span>${flag(u.winner)} <strong title="${escapeAttr(u.winner)}">${escapeHtml(shortCode(u.winner))}</strong> beat ${flag(u.loser)} <strong title="${escapeAttr(u.loser)}">${escapeHtml(shortCode(u.loser))}</strong></span><span class="muted">${u.matchId}</span></div>`
-      ).join("")
+    ? upsets.slice(0, 6).map(u => {
+        // Fire scales with the ranking gap: every upset earns one 🔥, +1 per ~10
+        // spots jumped, capped at 5 so a giant-killing can't overflow the row.
+        const fire = "🔥".repeat(Math.min(5, 1 + Math.floor(u.gap / 10)));
+        return `<div class="stat-line"><span>${flag(u.winner)} <strong title="${escapeAttr(u.winner)}">${escapeHtml(shortCode(u.winner))}</strong> beat ${flag(u.loser)} <strong title="${escapeAttr(u.loser)}">${escapeHtml(shortCode(u.loser))}</strong> <span class="upset-fire" title="Upset rating: +${u.gap} ranking spots">${fire}</span></span><span class="muted">${u.matchId}</span></div>`;
+      }).join("")
     : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
 
   // 5) Lone wolves — picks that exactly ONE person in the pool made (the most
