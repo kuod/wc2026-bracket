@@ -215,7 +215,7 @@ function predMatchTeams(pred, roundKey, match) {
 //  - Person (pred set): both teams of THEIR predicted matchup, with the team
 //    they picked to advance marked correct / wrong / pending vs reality and, on
 //    a correct pick, badged with the points it earned (+1 … +8).
-function canvasCard(roundKey, match, side, pred) {
+function canvasCard(roundKey, match, pred) {
   function row(team, opts) {
     opts = opts || {};
     if (!team) return `<div class="team-row empty"><span class="team-name">TBD</span></div>`;
@@ -289,7 +289,7 @@ function renderBracketCanvas() {
     : null;
 
   root.innerHTML = renderSymmetricBracket({
-    renderCard: (rk, m, side) => canvasCard(rk, m, side, pred)
+    renderCard: (rk, m) => canvasCard(rk, m, pred)
   });
 
   // Canvas header reflects what's shown.
