@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-30T22:04:37Z",
+  "generatedAt": "2026-06-30T22:57:01Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -96,21 +96,21 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-06-30"
     },
     "R32-6": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "France",
       "teamB": "Sweden",
-      "winner": null,
+      "winner": "France",
       "homeTeam": "France",
       "awayTeam": "Sweden",
-      "homeScore": "1",
+      "homeScore": "3",
       "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "HT",
-      "sportsDbEventId": "2502847",
-      "source": "TheSportsDB",
-      "completedAt": "2026-06-30"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760492",
+      "source": "ESPN",
+      "completedAt": "2026-06-30T21:00Z"
     },
     "R32-7": {
       "status": "scheduled",
@@ -286,8 +286,18 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "R16",
       "teamA": "Paraguay",
-      "teamB": null,
-      "winner": null
+      "teamB": "France",
+      "winner": null,
+      "homeTeam": "Paraguay",
+      "awayTeam": "France",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760503",
+      "source": "ESPN",
+      "completedAt": "2026-07-04T21:00Z"
     },
     "R16-2": {
       "status": "scheduled",
@@ -416,14 +426,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760503",
-      "source": "ESPN",
-      "home": "Paraguay",
-      "away": "Round of 32 5 Winner",
-      "resolvedHome": "Paraguay",
-      "resolvedAway": null
     },
     {
       "eventId": "760505",
