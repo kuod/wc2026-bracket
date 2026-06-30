@@ -449,6 +449,48 @@ img.flag {
    view reads like a scorecard. */
 .team-row .pick-points { flex: none; font-family: var(--font-mono); font-size: clamp(8px, 0.7vw, 11px); color: var(--gold-bright); font-weight: 700; }
 
+/* ---------- Pool consensus projection (live-results view) ---------- */
+/* Undecided slots are drawn in as the pool's score-weighted projection — a
+   "pencil sketch over the printed wallchart": dashed and dimmed so it never
+   reads as a real result (those stay solid/gold). Two independent marks:
+     .projected   — this team is drafted in, not a confirmed feeder winner yet.
+     .proj-favored — the side the pool backs to win this match; faint chalk tint
+                     + a share chip. Can sit on a real-but-unplayed team too. */
+.team-row.projected {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  background: transparent;
+  color: rgba(246, 243, 234, 0.6);
+  cursor: default;
+  font-weight: 500;
+}
+.team-row.projected .flag { opacity: 0.6; }
+.team-row.proj-favored {
+  /* The pool's pick to advance: a restrained chalk-gold wash, no solid fill, so
+     it's clearly "expected" rather than "decided" (which is the gold .selected). */
+  border-color: rgba(212, 168, 67, 0.55);
+  background: rgba(212, 168, 67, 0.07);
+  color: var(--chalk);
+}
+.team-row.proj-favored.projected { border-style: dashed; }
+/* Share of the score-weighted pool on the favoured side (e.g. "64%"). */
+.team-row .proj-share {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: clamp(8px, 0.7vw, 11px);
+  font-weight: 700;
+  color: var(--gold-bright);
+  opacity: 0.85;
+}
+
+/* The one-line legend that explains the dashed marks, sat under the hero head. */
+.canvas-proj-note {
+  margin: 4px 0 0;
+  font-size: clamp(10px, 0.8vw, 12px);
+  color: rgba(246, 243, 234, 0.5);
+}
+.canvas-proj-note b { color: rgba(212, 168, 67, 0.8); font-weight: 700; }
+
 /* ---------- Form fields ---------- */
 
 .field-group {
