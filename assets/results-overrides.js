@@ -17,4 +17,10 @@
 //   };
 //
 // Leave it as an empty object when there's nothing to correct.
-window.WC2026_RESULT_OVERRIDES = {};
+window.WC2026_RESULT_OVERRIDES = {
+  // R32-5 (Ivory Coast vs Norway): Norway won 2-1 (full time). TheSportsDB was
+  // still reporting the match as "2H" (in progress) well after the final
+  // whistle, so the auto-updater couldn't resolve it. ESPN had it as final.
+  // Safe to remove once the feed catches up — it agrees with the result.
+  "R32-5": "Norway"
+};
