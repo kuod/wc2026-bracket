@@ -26,6 +26,12 @@ function escapeAttr(s) {
   return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+// Pick singular/plural for a count, so copy reads "1 match" / "3 matches"
+// instead of the templated "1 match(es)". pluralForm defaults to singular + "s".
+function plural(n, singular, pluralForm) {
+  return n === 1 ? singular : (pluralForm || singular + "s");
+}
+
 // ---- Results: overrides win over embedded; nothing is fetched live ----------
 
 function loadResults() {
@@ -297,10 +303,11 @@ function renderBracketCanvas() {
   const score = document.getElementById("canvas-score");
   if (pred) {
     title.textContent = pred.predictor;
-    score.textContent = `${pred.score} pts · ${pred.correctCount}/${pred.decidedCount || 0} correct · rank #${pred.rank}`;
+    score.textContent = `${pred.score} ${plural(pred.score, "pt", "pts")} · ${pred.correctCount}/${pred.decidedCount || 0} correct · rank #${pred.rank}`;
   } else {
     title.textContent = "Live Results";
-    score.textContent = `${decidedCount()} match(es) decided`;
+    const d = decidedCount();
+    score.textContent = `${d} ${plural(d, "match", "matches")} decided`;
   }
 }
 
@@ -335,7 +342,7 @@ function renderLeaderboard() {
           <span class="lb-name">${escapeHtml(p.predictor)}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
-          <span class="lb-score">${p.score}<span class="muted">pts</span></span>
+          <span class="lb-score">${p.score}<span class="muted">${plural(p.score, "pt", "pts")}</span></span>
           <span class="lb-caret" aria-hidden="true">${active ? "●" : "▸"}</span>
         </button>
       </li>
@@ -609,14 +616,14 @@ function renderUpdatedStamp() {
   const decided = decidedCount();
   if (!resultsMeta || !resultsMeta.generatedAt) {
     el.textContent = decided
-      ? `Showing ${decided} result(s).`
+      ? `Showing ${decided} ${plural(decided, "result")}.`
       : "No results in yet — the bracket fills in as knockout matches finish.";
     return;
   }
   const when = new Date(resultsMeta.generatedAt);
   const nice = isNaN(when) ? resultsMeta.generatedAt
     : when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  el.textContent = `Results updated ${nice} · ${decided} match(es) decided`;
+  el.textContent = `Results updated ${nice} · ${decided} ${plural(decided, "match", "matches")} decided`;
 }
 
 // ---- Init -------------------------------------------------------------------
@@ -637,7 +644,7 @@ async function initScorePage() {
     renderStatus("Loading brackets…");
     try {
       predictions = await fetchPredictionsFromSheet(SCRIPT_URL);
-      renderStatus(`Loaded ${predictions.length} bracket(s).`, "ok");
+      renderStatus(`Loaded ${predictions.length} ${plural(predictions.length, "bracket")}.`, "ok");
       refresh();
     } catch (e) {
       renderStatus(`Couldn't load brackets right now (${e.message}). Try reloading in a moment.`, "err");

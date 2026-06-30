@@ -582,13 +582,18 @@ textarea.json-box {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Each standings row is a match-day ticket stub: the rank sits on a detachable
+   left stub (mono "seat number" + dashed perforation, set on .lb-rank below),
+   and the outer-left edge is punched with half-circle notches as if torn from a
+   ticket book. The notch fill is the page background so it reads as punched. */
 .lb-row {
+  position: relative;
   display: grid;
   grid-template-columns: 40px 1fr auto auto auto 20px;
   align-items: center;
   gap: 12px;
   width: 100%;
-  padding: clamp(8px, 1vh, 12px) clamp(10px, 1vw, 16px);
+  padding: clamp(8px, 1vh, 12px) clamp(10px, 1vw, 16px) clamp(8px, 1vh, 12px) clamp(15px, 1.4vw, 20px);
   background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015));
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -598,6 +603,16 @@ textarea.json-box {
   font-family: var(--font-body);
   transition: border-color 0.15s, background 0.15s;
 }
+/* Punched left edge — a vertical column of half-circle notches, inset from the
+   rounded corners so they never spill past them. */
+.lb-row::before {
+  content: "";
+  position: absolute;
+  left: -1px; top: 7px; bottom: 7px;
+  width: 7px;
+  background: radial-gradient(circle 3px at left center, var(--pitch-deep) 99%, transparent 100%) left center / 7px 13px repeat-y;
+  pointer-events: none;
+}
 .lb-row:hover { border-color: var(--line-strong); background: rgba(212,168,67,0.05); }
 /* Active = this person's bracket is the one currently shown in the canvas. */
 .lb-entry.is-active .lb-row {
@@ -605,11 +620,17 @@ textarea.json-box {
   background: rgba(212,168,67,0.12);
 }
 
+/* The rank is the ticket's "seat number": mono digits on a stub that's torn
+   from the row body by a dashed perforation (the right border). */
 .lb-rank {
-  font-family: var(--font-display);
-  font-size: 22px;
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
   text-align: center;
   color: rgba(246,243,234,0.5);
+  border-right: 1px dashed var(--line-strong);
+  padding-right: 12px;
+  margin-right: -2px;
 }
 .lb-rank.gold { color: var(--gold-bright); }
 .lb-rank.silver { color: #cdd2d6; }
@@ -709,6 +730,20 @@ body.on-leaderboard { overflow: auto; }
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: clamp(8px, 1vw, 14px);
+}
+
+/* Widescreen: pair the standings with the pool stats side-by-side instead of
+   stacking them, so the list doesn't stretch the full page width on large
+   desktops. Standings take a fixed-ish left column; the stat cards float to the
+   right as a 2-up grid (the world-map card still spans both via .stat-card-wide).
+   Below this width the lower zone stays stacked + full-width (the base rules);
+   portrait phones are unaffected (they're never this wide in landscape terms). */
+@media (min-width: 1100px) {
+  .on-leaderboard .lb-lower {
+    grid-template-columns: minmax(340px, 420px) 1fr;
+    align-items: start;          /* the two columns size their heights independently */
+  }
+  .lb-stats .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
 .stat-card {
   background: rgba(255,255,255,0.035);
