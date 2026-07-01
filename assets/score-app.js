@@ -333,14 +333,14 @@ function predMatchTeams(pred, roundKey, match) {
 
 // ---- Pool consensus projection ----------------------------------------------
 // For matches reality hasn't decided yet, show what the POOL collectively thinks
-// will happen — a transparent, score-weighted favourite per match. Heavier weight
+// will happen — a transparent, score-weighted favorite per match. Heavier weight
 // to more accurate predictors: weight = score + 1, so before anyone has points
 // it's a plain popular vote, then it tilts toward whoever's been right as scores
 // spread. Computed once per render and cascaded through the feeder graph (the
 // projected winner of a feeder becomes a team in the next round), exactly like
 // actualMatchTeams() does for real results.
 
-// Score-weighted favourite for one match: the team carrying the most predictor
+// Score-weighted favorite for one match: the team carrying the most predictor
 // weight, with its share of the total. Returns null when nobody picked the match.
 function consensusPick(matchId, board) {
   const weight = {};
@@ -362,7 +362,7 @@ function consensusPick(matchId, board) {
 
 // The pool's projected winner for every match, resolved in bracket order so each
 // round can read the round before it. Reality wins wherever it's known: a slot's
-// projected winner is the ACTUAL winner if decided, else the consensus favourite.
+// projected winner is the ACTUAL winner if decided, else the consensus favorite.
 // This keeps the projection from ever contradicting a real result, and lets a
 // later-round projection build on real earlier-round outcomes.
 function computeConsensus(board) {
@@ -379,9 +379,9 @@ function computeConsensus(board) {
         projected[m.id] = null;          // decided — no projection needed
         continue;
       }
-      // Only project a favourite that can actually reach this match (one of the
+      // Only project a favorite that can actually reach this match (one of the
       // two teams the bracket delivers here). Once the matchup is known we narrow
-      // the pool's pick to it; before that we still surface the raw favourite.
+      // the pool's pick to it; before that we still surface the raw favorite.
       const pick = consensusPick(m.id, board);
       let team = pick ? pick.team : null;
       if (team && teamA && teamB && team !== teamA && team !== teamB) team = null;
@@ -427,10 +427,10 @@ function canvasCard(roundKey, match, pred, consensus) {
       ? `<span class="pick-points" title="Points earned">+${opts.points}</span>` : "";
     const actual = opts.actual
       ? `<span class="pick-actual" title="Actual winner">→ ${escapeHtml(shortCode(opts.actual))}</span>` : "";
-    // Share chip on the pool's favoured side (e.g. "64%" of score-weighted pool).
+    // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
     const share = opts.favored && opts.share != null
       ? `<span class="proj-share" title="Share of the score-weighted pool">${Math.round(opts.share * 100)}%</span>` : "";
-    const titleSuffix = opts.projected ? " — pool projection" : (opts.favored ? " — pool favourite" : "");
+    const titleSuffix = opts.projected ? " — pool projection" : (opts.favored ? " — pool favorite" : "");
     return `<div class="team-row${cls}" title="${escapeAttr(team)}${titleSuffix}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
         ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${actual}${share}
@@ -445,7 +445,7 @@ function canvasCard(roundKey, match, pred, consensus) {
     // a slot yet, draw in the pool's score-weighted projection (the projected
     // winner of that feeder) instead of a bare "TBD". Either way, the side the
     // pool favours to WIN this match gets the tint + share chip. Real results
-    // always win, so a decided match shows neither projection nor favourite mark.
+    // always win, so a decided match shows neither projection nor favorite mark.
     const winner = actual || null;
     const [teamA, teamB] = actualMatchTeams(roundKey, match);
     const proj = consensus ? consensus.projected[match.id] : null;
@@ -540,7 +540,7 @@ function renderCanvasHead(pred, hasConsensus) {
   if (note) {
     const show = !pred && hasConsensus;
     note.hidden = !show;
-    if (show) note.innerHTML = `<b>Dashed</b> = pool projection · the score-weighted favourite for matches still to come`;
+    if (show) note.innerHTML = `<b>Dashed</b> = pool projection · the score-weighted favorite for matches still to come`;
   }
 
   if (pred) {

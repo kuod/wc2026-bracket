@@ -383,11 +383,14 @@ img.flag {
 /* Three-letter country codes read as a stadium ticker: monospace everywhere
    they appear — bracket cards (.team-name, always a code or "TBD"), the
    ranked-list champion column (.lb-team), the pool-stat bars (.stat-bar-label),
-   and the "→ MAR" actual-winner tag (.pick-actual) — so the codes line up with
-   the mono numerals already used for ranks, scores and shares around them. */
+   the emphasised codes in stat-card lines (.stat-line strong — Most-predicted
+   Final, Most Shocking, Lone wolves), and the "→ MAR" actual-winner tag
+   (.pick-actual) — so the codes line up with the mono numerals already used for
+   ranks, scores and shares around them. */
 .team-row .team-name,
 .lb-team,
 .stat-bar-label,
+.stat-line strong,
 .team-row .pick-actual {
   font-family: var(--font-mono);
 }
@@ -485,7 +488,7 @@ img.flag {
   color: var(--chalk);
 }
 .team-row.proj-favored.projected { border-style: dashed; }
-/* Share of the score-weighted pool on the favoured side (e.g. "64%"). */
+/* Share of the score-weighted pool on the favored side (e.g. "64%"). */
 .team-row .proj-share {
   flex: none;
   font-family: var(--font-mono);
