@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-01T07:58:07Z",
+  "generatedAt": "2026-07-01T18:02:29Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -130,21 +130,21 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-01T02:00Z"
     },
     "R32-8": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "England",
       "teamB": "DR Congo",
-      "winner": null,
+      "winner": "England",
       "homeTeam": "England",
       "awayTeam": "DR Congo",
-      "homeScore": null,
-      "awayScore": null,
+      "homeScore": "2",
+      "awayScore": "1",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "NS",
-      "sportsDbEventId": "2503391",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-01"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760495",
+      "source": "ESPN",
+      "completedAt": "2026-07-01T16:00Z"
     },
     "R32-9": {
       "status": "scheduled",
@@ -351,8 +351,18 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "R16",
       "teamA": "Mexico",
-      "teamB": null,
-      "winner": null
+      "teamB": "England",
+      "winner": null,
+      "homeTeam": "Mexico",
+      "awayTeam": "England",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760505",
+      "source": "ESPN",
+      "completedAt": "2026-07-06T00:00Z"
     },
     "R16-7": {
       "status": "scheduled",
@@ -426,14 +436,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760505",
-      "source": "ESPN",
-      "home": "Mexico",
-      "away": "Round of 32 8 Winner",
-      "resolvedHome": "Mexico",
-      "resolvedAway": null
     },
     {
       "eventId": "760506",
