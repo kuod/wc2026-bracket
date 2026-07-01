@@ -657,10 +657,16 @@ function renderPoolStats() {
   const curRoundLabel = roundShortLabel(curRound);
   const curRoundMatches = (ROUNDS.find(r => r.key === curRound) || ROUNDS[0]).matches;
 
-  // 1) Champion distribution (FINAL pick).
+  // 1) Champion distribution (FINAL pick). Only teams with genuine pool backing
+  //    (2+ entries) earn a bar — a lone champion pick overstates "backing" and is
+  //    already surfaced by the Lone wolves card below.
   const champs = tally("FINAL");
-  const champBars = champs.slice(0, 5).map(c => statBar(c.team, c.count, c.share)).join("") ||
-    `<p class="muted">No champion picks yet.</p>`;
+  const backed = champs.filter(c => c.count > 1);
+  const champBars = champs.length === 0
+    ? `<p class="muted">No champion picks yet.</p>`
+    : backed.length === 0
+      ? `<p class="muted">No team has more than one backer yet.</p>`
+      : backed.slice(0, 5).map(c => statBar(c.team, c.count, c.share)).join("");
 
   // 2) Predicted Final matchups — tally every unordered pair of FINAL feeders
   //    across the pool and surface the top 4 distinct matchups with counts.
