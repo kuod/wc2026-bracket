@@ -495,11 +495,12 @@ function canvasCard(roundKey, match, pred, consensus) {
     const share = opts.favored && opts.share != null
       ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
     const titleSuffix = opts.projected ? " — pool projection" : (opts.favored ? " — pool favorite" : "");
-    // Final scoreline (reality view, decided match only): the team's goals, with
-    // the penalty shootout tally in parentheses when the match went to pens.
+    // Final scoreline (reality view, decided match only): the team's goals, and
+    // — when the match went to penalties — its shootout tally dash-joined (e.g.
+    // "1-3"), which stays tighter than a parenthesized "(3)".
     const score = opts.score
       ? `<span class="team-score">${opts.score.goals}${
-          opts.score.pens != null ? `<span class="pen">(${opts.score.pens})</span>` : ""
+          opts.score.pens != null ? `<span class="pen">-${opts.score.pens}</span>` : ""
         }</span>` : "";
     return `<div class="team-row${cls}" title="${escapeAttr(team)}${titleSuffix}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
