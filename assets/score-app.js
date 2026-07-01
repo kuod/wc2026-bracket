@@ -431,7 +431,7 @@ function canvasCard(roundKey, match, pred, consensus) {
       ? `<span class="pick-actual" title="Actual winner">→ ${escapeHtml(shortCode(opts.actual))}</span>` : "";
     // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
     const share = opts.favored && opts.share != null
-      ? `<span class="proj-share" title="Share of the score-weighted pool">${Math.round(opts.share * 100)}%</span>` : "";
+      ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
     const titleSuffix = opts.projected ? " — pool projection" : (opts.favored ? " — pool favorite" : "");
     return `<div class="team-row${cls}" title="${escapeAttr(team)}${titleSuffix}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
@@ -542,7 +542,7 @@ function renderCanvasHead(pred, hasConsensus) {
   if (note) {
     const show = !pred && hasConsensus;
     note.hidden = !show;
-    if (show) note.innerHTML = `<b>Dashed</b> = pool projection · the score-weighted favorite for matches still to come`;
+    if (show) note.innerHTML = `<b>Dashed</b> = the pool's best guess for matches still to come, leaning on whoever's picked best so far · <b>%</b> = how much of that pool backs the team`;
   }
 
   if (pred) {
@@ -732,19 +732,29 @@ function renderPoolStats() {
       }).join("")
     : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
 
-  // 5) Lone wolves — picks in the CURRENT round that exactly ONE person made (the
-  //    round's most contrarian standing calls). Scoped to curRoundMatches so it
-  //    tracks the round in play, like the divisive/shocking cards. Works before
-  //    any results are in.
-  const lone = [];
-  for (const m of curRoundMatches) {
-    const t = tally(m.id);
-    for (const s of t) {
-      if (s.count === 1) {
-        const who = predictions.find(p => p.picks[m.id] === s.team);
-        if (who) lone.push({ who: who.predictor, team: s.team, matchId: m.id });
+  // 5) Lone wolves — picks that exactly ONE person made (the boldest contrarian
+  //    standing calls). Anchored to the current round, but if the pool is in full
+  //    consensus there, cascade forward (R16 → QF → … → Final) and show the first
+  //    later round that HAS a solo pick — so the card is never a dead end. Each
+  //    row's match id makes the borrowed round self-evident; the title stays the
+  //    current round. Works before any results are in.
+  const solosInRound = (round) => {
+    const out = [];
+    for (const m of round.matches) {
+      for (const s of tally(m.id)) {
+        if (s.count === 1) {
+          const who = predictions.find(p => p.picks[m.id] === s.team);
+          if (who) out.push({ who: who.predictor, team: s.team, matchId: m.id });
+        }
       }
     }
+    return out;
+  };
+  let lone = [];
+  const curRoundIdx = ROUNDS.findIndex(r => r.key === curRound);
+  for (const round of ROUNDS.slice(Math.max(0, curRoundIdx))) {
+    lone = solosInRound(round);
+    if (lone.length) break;   // first round with any solo pick wins
   }
   // Boldest first: the lowest-ranked team someone backed alone (rankOf is a FIFA
   // rank number, higher = weaker), then match id, then name — deterministic.
@@ -755,7 +765,7 @@ function renderPoolStats() {
     ? lone.slice(0, 6).map(c =>
         `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
       ).join("")
-    : `<p class="muted">No solo picks in ${curRoundLabel} — the pool agrees.</p>`;
+    : `<p class="muted">No solo picks anywhere yet — the pool is in lockstep.</p>`;
 
   // 6) Pool at a glance + "chalk score" (how herd-like the pool is: average
   //    top-pick share across all matches that have any picks).
