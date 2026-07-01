@@ -741,40 +741,45 @@ function renderPoolStats() {
     : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
 
   // 5) Lone wolves — picks that exactly ONE person made AND whose team is still
-  //    alive (a solo bet on an eliminated team is dead weight, so we drop it).
-  //    Anchored to the current round, but if the pool is in full consensus there
-  //    (or every solo there backs a dead team), cascade forward (R16 → QF → …) to
-  //    the first later round that HAS a legal solo pick — so the card never leaks
-  //    to a far round while nearer legal wolves exist, and is never a dead end.
-  //    Each row's match id makes the borrowed round self-evident; the title is
-  //    round-agnostic. Rows lead with the highest-scoring backer — the spiciest
-  //    signal is the pool leader going against the grain. Works before any results
-  //    are in (survivingTeams() then holds all 32, so nothing is filtered out).
-  const solosInRound = (round) => {
-    const out = [];
-    for (const m of round.matches) {
+  //    alive (a solo bet on an eliminated team is dead weight, so we drop it). We
+  //    project OUTWARD from the current round through every later round (R16 → QF
+  //    → SF → Final), gathering every legal solo, so the card shows the pool's
+  //    boldest standing calls no matter how deep they run — not just the nearest
+  //    round. A deep solo (e.g. one person riding a team all the way to the Final)
+  //    reads as a solo at each of those rounds, so we collapse to ONE row per
+  //    person at their EARLIEST divergence — the round they first stood alone —
+  //    keyed by ROUNDS index (never the match-id string: "FINAL" sorts before
+  //    "QF"/"R16" alphabetically). Rows lead with the highest-scoring backer —
+  //    the spiciest signal is the pool leader going against the grain. The title
+  //    is round-agnostic; each row's match id names where the call diverged. Works
+  //    before any results are in (survivingTeams() then holds all 32, so nothing
+  //    is filtered out).
+  const curRoundIdx = ROUNDS.findIndex(r => r.key === curRound);
+  const soloEarliest = new Map();   // predictor → their earliest-round legal solo
+  for (let ri = Math.max(0, curRoundIdx); ri < ROUNDS.length; ri++) {
+    for (const m of ROUNDS[ri].matches) {
       for (const s of tally(m.id)) {
-        if (s.count === 1 && survivors.has(s.team)) {
-          const who = predictions.find(p => p.picks[m.id] === s.team);
-          if (who) out.push({ who: who.predictor, team: s.team, matchId: m.id });
-        }
+        if (s.count !== 1 || !survivors.has(s.team)) continue;
+        const who = predictions.find(p => p.picks[m.id] === s.team);
+        if (!who) continue;
+        const cur = soloEarliest.get(who.predictor);
+        // Keep the earliest round; within one round, prefer the bolder team, then
+        // the lower match id — deterministic, and never overwrites a nearer round.
+        const better = !cur || ri < cur.roundIdx
+          || (ri === cur.roundIdx && (rankOf(s.team) > rankOf(cur.team)
+              || (rankOf(s.team) === rankOf(cur.team) && m.id.localeCompare(cur.matchId) < 0)));
+        if (better) soloEarliest.set(who.predictor, { who: who.predictor, team: s.team, matchId: m.id, roundIdx: ri });
       }
     }
-    return out;
-  };
-  let lone = [];
-  const curRoundIdx = ROUNDS.findIndex(r => r.key === curRound);
-  for (const round of ROUNDS.slice(Math.max(0, curRoundIdx))) {
-    lone = solosInRound(round);
-    if (lone.length) break;   // first round with any legal solo pick wins
   }
+  const lone = [...soloEarliest.values()];
   // Spiciest first: the backer's current leaderboard score (highest going against
   // the grain leads), then boldest team (rankOf is a FIFA rank number, higher =
-  // weaker), then match id, then name — deterministic. `?? 0` guards the (never
-  // in practice) case of a backer absent from the board without producing a NaN.
+  // weaker), then earliest round, then name — deterministic. `?? 0` guards the
+  // (never in practice) case of a backer absent from the board without a NaN.
   lone.sort((a, b) => (scoreByPredictor.get(b.who) ?? 0) - (scoreByPredictor.get(a.who) ?? 0)
                       || rankOf(b.team) - rankOf(a.team)
-                      || a.matchId.localeCompare(b.matchId)
+                      || a.roundIdx - b.roundIdx
                       || a.who.localeCompare(b.who));
   const loneHtml = lone.length
     ? lone.slice(0, 6).map(c =>
