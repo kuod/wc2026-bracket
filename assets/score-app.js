@@ -142,16 +142,18 @@ function decidedCount() {
   return Object.keys(actualResults).length;
 }
 
-// The furthest round the tournament has reached: the latest round (in bracket
-// order) with at least one decided match. Defaults to "R32" before any results
-// are in. Lets the pool-stat cards stay topical — "Most divisive R16",
-// "Most Shocking QF" — as the bracket advances, instead of being frozen on R32.
+// The round the tournament is CURRENTLY playing: the first round (in bracket
+// order) that isn't fully decided yet. So the moment every R32 match is settled
+// the cards advance to R16 — even before an R16 match has finished — rather than
+// waiting on the next round's first result. Defaults to "R32" before any results
+// are in (R32 isn't fully decided), and returns "FINAL" once everything is done.
+// Lets the pool-stat cards stay topical on the round actually in play ("Most
+// divisive R16", "Lone wolves QF") instead of lagging a round behind.
 function currentRound() {
-  let latest = ROUNDS[0].key;
   for (const round of ROUNDS) {
-    if (round.matches.some(m => actualResults[m.id])) latest = round.key;
+    if (!round.matches.every(m => actualResults[m.id])) return round.key;
   }
-  return latest;
+  return ROUNDS[ROUNDS.length - 1].key;
 }
 
 // A short, human label for a round key, for stat-card titles ("R32", "R16",
@@ -730,28 +732,30 @@ function renderPoolStats() {
       }).join("")
     : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
 
-  // 5) Lone wolves — picks that exactly ONE person in the pool made (the most
-  //    contrarian standing calls). Works before any results are in.
+  // 5) Lone wolves — picks in the CURRENT round that exactly ONE person made (the
+  //    round's most contrarian standing calls). Scoped to curRoundMatches so it
+  //    tracks the round in play, like the divisive/shocking cards. Works before
+  //    any results are in.
   const lone = [];
-  for (const round of ROUNDS) {
-    for (const m of round.matches) {
-      const t = tally(m.id);
-      for (const s of t) {
-        if (s.count === 1) {
-          const who = predictions.find(p => p.picks[m.id] === s.team);
-          if (who) lone.push({ who: who.predictor, team: s.team, matchId: m.id, round: round.key });
-        }
+  for (const m of curRoundMatches) {
+    const t = tally(m.id);
+    for (const s of t) {
+      if (s.count === 1) {
+        const who = predictions.find(p => p.picks[m.id] === s.team);
+        if (who) lone.push({ who: who.predictor, team: s.team, matchId: m.id });
       }
     }
   }
-  // Surface the boldest (latest-round) lone calls first.
-  const roundOrder = { R32: 0, R16: 1, QF: 2, SF: 3, FINAL: 4 };
-  lone.sort((a, b) => roundOrder[b.round] - roundOrder[a.round]);
+  // Boldest first: the lowest-ranked team someone backed alone (rankOf is a FIFA
+  // rank number, higher = weaker), then match id, then name — deterministic.
+  lone.sort((a, b) => rankOf(b.team) - rankOf(a.team)
+                      || a.matchId.localeCompare(b.matchId)
+                      || a.who.localeCompare(b.who));
   const loneHtml = lone.length
     ? lone.slice(0, 6).map(c =>
         `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
       ).join("")
-    : `<p class="muted">No solo picks — the pool agrees so far.</p>`;
+    : `<p class="muted">No solo picks in ${curRoundLabel} — the pool agrees.</p>`;
 
   // 6) Pool at a glance + "chalk score" (how herd-like the pool is: average
   //    top-pick share across all matches that have any picks).
@@ -858,7 +862,7 @@ function renderPoolStats() {
         ${upsetHtml}
       </div>
       <div class="stat-card">
-        <h3>Lone wolves</h3>
+        <h3>Lone wolves · ${curRoundLabel}</h3>
         ${loneHtml}
       </div>
       <div class="stat-card stat-card-mini">
