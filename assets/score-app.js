@@ -659,6 +659,14 @@ function renderPoolStats() {
   const curRoundLabel = roundShortLabel(curRound);
   const curRoundMatches = (ROUNDS.find(r => r.key === curRound) || ROUNDS[0]).matches;
 
+  // Shared across several cards below: the scored leaderboard, the set of teams
+  // still alive, and a name→score lookup (drives the Lone wolves ordering). Hoisted
+  // here so the lone-wolves block can reuse them; the Pool-at-a-glance and continent
+  // cards read the same consts further down.
+  const board = computeLeaderboard();
+  const survivors = survivingTeams();
+  const scoreByPredictor = new Map(board.map(p => [p.predictor, p.score]));
+
   // 1) Champion distribution (FINAL pick). Only teams with genuine pool backing
   //    (2+ entries) earn a bar — a lone champion pick overstates "backing" and is
   //    already surfaced by the Lone wolves card below.
@@ -732,17 +740,21 @@ function renderPoolStats() {
       }).join("")
     : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
 
-  // 5) Lone wolves — picks that exactly ONE person made (the boldest contrarian
-  //    standing calls). Anchored to the current round, but if the pool is in full
-  //    consensus there, cascade forward (R16 → QF → … → Final) and show the first
-  //    later round that HAS a solo pick — so the card is never a dead end. Each
-  //    row's match id makes the borrowed round self-evident; the title stays the
-  //    current round. Works before any results are in.
+  // 5) Lone wolves — picks that exactly ONE person made AND whose team is still
+  //    alive (a solo bet on an eliminated team is dead weight, so we drop it).
+  //    Anchored to the current round, but if the pool is in full consensus there
+  //    (or every solo there backs a dead team), cascade forward (R16 → QF → …) to
+  //    the first later round that HAS a legal solo pick — so the card never leaks
+  //    to a far round while nearer legal wolves exist, and is never a dead end.
+  //    Each row's match id makes the borrowed round self-evident; the title is
+  //    round-agnostic. Rows lead with the highest-scoring backer — the spiciest
+  //    signal is the pool leader going against the grain. Works before any results
+  //    are in (survivingTeams() then holds all 32, so nothing is filtered out).
   const solosInRound = (round) => {
     const out = [];
     for (const m of round.matches) {
       for (const s of tally(m.id)) {
-        if (s.count === 1) {
+        if (s.count === 1 && survivors.has(s.team)) {
           const who = predictions.find(p => p.picks[m.id] === s.team);
           if (who) out.push({ who: who.predictor, team: s.team, matchId: m.id });
         }
@@ -754,22 +766,25 @@ function renderPoolStats() {
   const curRoundIdx = ROUNDS.findIndex(r => r.key === curRound);
   for (const round of ROUNDS.slice(Math.max(0, curRoundIdx))) {
     lone = solosInRound(round);
-    if (lone.length) break;   // first round with any solo pick wins
+    if (lone.length) break;   // first round with any legal solo pick wins
   }
-  // Boldest first: the lowest-ranked team someone backed alone (rankOf is a FIFA
-  // rank number, higher = weaker), then match id, then name — deterministic.
-  lone.sort((a, b) => rankOf(b.team) - rankOf(a.team)
+  // Spiciest first: the backer's current leaderboard score (highest going against
+  // the grain leads), then boldest team (rankOf is a FIFA rank number, higher =
+  // weaker), then match id, then name — deterministic. `?? 0` guards the (never
+  // in practice) case of a backer absent from the board without producing a NaN.
+  lone.sort((a, b) => (scoreByPredictor.get(b.who) ?? 0) - (scoreByPredictor.get(a.who) ?? 0)
+                      || rankOf(b.team) - rankOf(a.team)
                       || a.matchId.localeCompare(b.matchId)
                       || a.who.localeCompare(b.who));
   const loneHtml = lone.length
     ? lone.slice(0, 6).map(c =>
         `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
       ).join("")
-    : `<p class="muted">No solo picks anywhere yet — the pool is in lockstep.</p>`;
+    : `<p class="muted">No live solo picks yet — the pool is in lockstep.</p>`;
 
   // 6) Pool at a glance + "chalk score" (how herd-like the pool is: average
-  //    top-pick share across all matches that have any picks).
-  const board = computeLeaderboard();
+  //    top-pick share across all matches that have any picks). Uses the hoisted
+  //    `board` from the top of the function.
   const scores = board.map(p => p.score).sort((a, b) => a - b);
   const avg = scores.length ? (scores.reduce((s, x) => s + x, 0) / scores.length) : 0;
   const median = scores.length
@@ -798,8 +813,8 @@ function renderPoolStats() {
   const contTotal = Object.values(contCounts).reduce((s, x) => s + x, 0);
 
   // "Likely": fold the surviving teams into their continents. totalSurvivors is
-  // the denominator (29 right now: 3 R32 results have knocked 3 teams out).
-  const survivors = survivingTeams();
+  // the denominator (29 right now: 3 R32 results have knocked 3 teams out). Uses
+  // the hoisted `survivors` set from the top of the function.
   const likeCounts = {};
   for (const team of survivors) {
     const c = continentOf(team);
@@ -872,7 +887,7 @@ function renderPoolStats() {
         ${upsetHtml}
       </div>
       <div class="stat-card">
-        <h3>Lone wolves · ${curRoundLabel}</h3>
+        <h3>Lone wolves</h3>
         ${loneHtml}
       </div>
       <div class="stat-card stat-card-mini">
