@@ -151,6 +151,31 @@ function loadResults() {
   actualResults = out;
 }
 
+// The scoreline for a decided match, aligned to team NAME, or null. Reads the
+// full embedded result (loadResults() keeps only the winner name), normalizing
+// across the two feeds: TheSportsDB serves scores as strings, ESPN as ints, so
+// Number() flattens both. Returns { [teamName]: { goals, pens } }.
+function matchScore(matchId) {
+  const r = resultsMeta && resultsMeta.results && resultsMeta.results[matchId];
+  if (!r || r.status !== "complete") return null;   // skips scheduled/unformed
+  // Only show a score when the embedded winner still matches the resolved
+  // result, so a winner-only override (results-overrides.js) that flips the
+  // winner never leaves a contradicting scoreline on screen.
+  if (!r.winner || r.winner !== actualResults[matchId]) return null;
+  const num = v => (v == null || v === "" ? null : Number(v)); // "0"/0 valid; ""/null -> none
+  const home = num(r.homeScore), away = num(r.awayScore);
+  if (home == null || away == null) return null;
+  // homeScoreExtra/awayScoreExtra doubles as the extra-time score for AET, so
+  // only read it as a shootout tally when the match was decided on penalties.
+  const penH = r.decidedBy === "AP" ? num(r.homeScoreExtra) : null;
+  const penA = r.decidedBy === "AP" ? num(r.awayScoreExtra) : null;
+  // Goals key to homeTeam/awayTeam — NOT teamA/teamB or the winner.
+  return {
+    [r.homeTeam]: { goals: home, pens: penH },
+    [r.awayTeam]: { goals: away, pens: penA },
+  };
+}
+
 function decidedCount() {
   return Object.keys(actualResults).length;
 }
@@ -470,9 +495,15 @@ function canvasCard(roundKey, match, pred, consensus) {
     const share = opts.favored && opts.share != null
       ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
     const titleSuffix = opts.projected ? " — pool projection" : (opts.favored ? " — pool favorite" : "");
+    // Final scoreline (reality view, decided match only): the team's goals, with
+    // the penalty shootout tally in parentheses when the match went to pens.
+    const score = opts.score
+      ? `<span class="team-score">${opts.score.goals}${
+          opts.score.pens != null ? `<span class="pen">(${opts.score.pens})</span>` : ""
+        }</span>` : "";
     return `<div class="team-row${cls}" title="${escapeAttr(team)}${titleSuffix}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
-        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${actual}${share}
+        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${actual}${share}${score}
       </div>`;
   }
 
@@ -489,8 +520,9 @@ function canvasCard(roundKey, match, pred, consensus) {
     const [teamA, teamB] = actualMatchTeams(roundKey, match);
     const proj = consensus ? consensus.projected[match.id] : null;
     const favTeam = proj ? proj.team : null;
+    const sc = matchScore(match.id);   // per-team scoreline, or null
     const slot = (real, side) => {
-      if (winner) return row(real, { win: winner === real });   // decided
+      if (winner) return row(real, { win: winner === real, score: sc && sc[real] });  // decided
       const team = real || projFeederTeam(roundKey, match, side, consensus);
       if (!team) return row(null);                              // genuine TBD
       const favored = !!favTeam && team === favTeam;

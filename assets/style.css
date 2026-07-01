@@ -489,6 +489,19 @@ img.flag {
   color: var(--chalk);
 }
 .team-row.proj-favored.projected { border-style: dashed; }
+/* Final scoreline on a decided reality-view row. Mono/tabular like the other
+   right-pinned chips; inherits the row's color so it reads dark-on-gold on the
+   gold .selected winner and chalk on the loser. Penalty tally sits quieter, in
+   parens, so a shootout reads as "1 (4)". */
+.team-row .team-score {
+  flex: none;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: clamp(9px, 0.8vw, 12px);
+}
+.team-row .team-score .pen { margin-left: 3px; font-weight: 600; opacity: 0.7; }
+
 /* Share of the score-weighted pool on the favored side (e.g. "64%"). */
 .team-row .proj-share {
   flex: none;
