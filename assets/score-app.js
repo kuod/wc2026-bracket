@@ -11,8 +11,21 @@
 // renderSymmetricBracket used by the predictor). By default it shows reality;
 // clicking a name morphs it in place to that person's picks vs reality.
 
-// Points per round — later rounds worth more, like a real pick'em.
-const ROUND_POINTS = { R32: 1, R16: 2, QF: 3, SF: 5, FINAL: 8 };
+// Points per round — POSITIONAL ENCODING: each round owns a digit-place, so the
+// total score reads right-to-left as your per-round correct counts. A score of
+// 112,509 decodes as R32 09 · R16 5 · QF 2 · SF 1 · FINAL 1. Max correct per
+// round (R32≤16, R16≤8, QF≤4, SF≤2, FINAL≤1) fits its field, so nothing carries:
+// R32 owns the ones+tens (00–99), each later round a single digit. Max base
+// score = 16·1 + 8·100 + 4·1000 + 2·10000 + 1·100000 = 124,816 → "1·2·4·8·16".
+const ROUND_POINTS = { R32: 1, R16: 100, QF: 1000, SF: 10000, FINAL: 100000 };
+
+// R32 upset bonus — the ONLY round with slack in its field (max count 16, field
+// holds 00–99), so a correct R32 pick that few brackets backed earns extra points
+// that ride *inside* the R32 field without carrying into the R16 hundreds digit.
+// Worst case 16 correct × 4 = 64 bonus + 16 count = 80 < 100 → always safe.
+// The bonus is 0 for a near-consensus winner and grows as the winner gets rarer.
+const R32_UPSET_MAX = 4;      // most bonus points a single bold R32 call can earn
+const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to score rarity
 
 let actualResults = {};   // matchId -> winning team name (decided matches only)
 let resultsMeta = null;   // the WC2026_RESULTS payload (for the "updated" stamp)
@@ -264,24 +277,45 @@ function pickState(matchId, guess) {
   return guess === actual ? "correct" : "wrong";
 }
 
+// Upset bonus for a CORRECT R32 pick: the fewer brackets that backed the actual
+// winner of that match, the bigger the reward. Rarity = 1 − (winner's share among
+// brackets that picked this match); a near-unanimous winner rounds to 0, a genuine
+// long shot to R32_UPSET_MAX. Guarded so a match too few people picked never scores
+// (small samples make "rarity" meaningless). Reuses tally() (hoisted below).
+function r32UpsetBonus(matchId, winner) {
+  const dist = tally(matchId);
+  const eligible = dist.reduce((s, d) => s + d.count, 0);
+  if (eligible < R32_MIN_ELIGIBLE) return 0;
+  const hit = dist.find(d => d.team === winner);
+  const share = hit ? hit.share : 0;
+  return Math.round(R32_UPSET_MAX * (1 - share));
+}
+
 function scorePrediction(pred) {
   let score = 0;
   const breakdown = [];
   const roundSubtotals = {};
   for (const round of ROUNDS) {
-    let roundCorrect = 0, roundDecided = 0;
+    let roundCorrect = 0, roundDecided = 0, roundBonus = 0;
     for (const match of round.matches) {
       const guess = pred.picks[match.id];
       const actual = actualResults[match.id];
       const state = pickState(match.id, guess);
       if (actual) roundDecided++;
+      let bonus = 0;
       if (state === "correct") {
         score += ROUND_POINTS[round.key];
         roundCorrect++;
+        // R32 is the only round that carries an upset bonus (its field has room).
+        if (round.key === "R32") {
+          bonus = r32UpsetBonus(match.id, actual);
+          score += bonus;          // R32 weight is 1, so this lands in the ones/tens field
+          roundBonus += bonus;
+        }
       }
-      breakdown.push({ matchId: match.id, round: round.key, guess, actual, state });
+      breakdown.push({ matchId: match.id, round: round.key, guess, actual, state, bonus });
     }
-    roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length };
+    roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length, bonus: roundBonus };
   }
   return { score, breakdown, roundSubtotals };
 }
@@ -407,7 +441,7 @@ function projFeederTeam(roundKey, match, side, consensus) {
 //  - Reality (no pred): both teams of the real matchup; actual winner gold.
 //  - Person (pred set): both teams of THEIR predicted matchup, with the team
 //    they picked to advance marked correct / wrong / pending vs reality and, on
-//    a correct pick, badged with the points it earned (+1 … +8).
+//    a correct R32 pick that beat the pool, badged with its 🔥 upset bonus.
 function canvasCard(roundKey, match, pred, consensus) {
   function row(team, opts) {
     opts = opts || {};
@@ -424,9 +458,12 @@ function canvasCard(roundKey, match, pred, consensus) {
       : (opts.win || opts.chosen ? " selected"
       : `${opts.projected ? " projected" : ""}${opts.favored ? " proj-favored" : ""}`);
     const mark = opts.state === "correct" ? "✓" : opts.state === "wrong" ? "✗" : "";
-    // Points earned on a correct pick, shown on the right alongside the ✓.
-    const pts = opts.points
-      ? `<span class="pick-points" title="Points earned">+${opts.points}</span>` : "";
+    // Upset chip: shown only on a correct R32 pick that earned an upset bonus (the
+    // one round that carries one). Raw place values (+100000) would look broken in
+    // a match cell, so ordinary correct picks lean on the ✓ + card position; the
+    // 🔥 flags the picks that actually beat the pool.
+    const pts = opts.bonus
+      ? `<span class="pick-points" title="Upset bonus — few brackets backed this winner">🔥+${opts.bonus}</span>` : "";
     const actual = opts.actual
       ? `<span class="pick-actual" title="Actual winner">→ ${escapeHtml(shortCode(opts.actual))}</span>` : "";
     // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
@@ -472,8 +509,11 @@ function canvasCard(roundKey, match, pred, consensus) {
   // one they predicted would lose here — is shown plain.
   const guess = pred.picks[match.id];
   const state = pickState(match.id, guess);
-  const points = state === "correct" ? ROUND_POINTS[roundKey] : 0;
   const showActual = state === "wrong" && actual ? actual : null;
+  // Per-pick upset bonus, read from the breakdown computed at scoring time (only
+  // ever non-zero on a correct R32 pick). Used to badge the pick with 🔥+N.
+  const bd = pred.breakdown && pred.breakdown.find(b => b.matchId === match.id);
+  const bonus = state === "correct" && bd ? (bd.bonus || 0) : 0;
   const [teamA, teamB] = predMatchTeams(pred, roundKey, match);
 
   const personRow = team => {
@@ -483,7 +523,7 @@ function canvasCard(roundKey, match, pred, consensus) {
       // (not dimmed like the old subtractive view) before a result is in.
       const opts = state === "pending"
         ? { chosen: true }
-        : { state, points, actual: showActual };
+        : { state, bonus, actual: showActual };
       return row(team, opts);
     }
     return row(team, {});
@@ -525,6 +565,28 @@ function renderBracketCanvas() {
   renderCanvasHead(pred, !!consensus);
 }
 
+// The per-round breakdown, as a row of scoreboard chips: one per round, each
+// showing correct/total, tinted progressively toward gold as the round's stakes
+// climb (R32 cool → FINAL gold) so the score's shape reads at a glance. Because
+// the R32 field also carries the upset bonus, its chip shows the TRUE count and
+// appends "🔥+N" when bonus was earned — so the strip never lies about how many
+// R32 games were actually called right, even when the score's R32 digits are
+// inflated. Rounds with nothing decided yet are dimmed but still shown.
+function roundStrip(subs) {
+  if (!subs) return "";
+  const chips = ROUNDS.map(r => {
+    const s = subs[r.key] || { correct: 0, total: r.matches.length, decided: 0, bonus: 0 };
+    const live = s.decided > 0;
+    const fire = r.key === "R32" && s.bonus > 0
+      ? `<span class="rc-fire" title="Upset bonus earned">🔥+${s.bonus}</span>` : "";
+    return `<span class="round-chip rc-${r.key.toLowerCase()}${live ? "" : " is-dim"}${s.correct ? " has-hits" : ""}">` +
+             `<span class="rc-label">${roundShortLabel(r.key)}</span>` +
+             `<span class="rc-count">${s.correct}<span class="rc-slash">/${s.total}</span></span>${fire}` +
+           `</span>`;
+  }).join("");
+  return `<span class="round-strip">${chips}</span>`;
+}
+
 // The hero header reads as a stadium scoreboard: a featured stat (big number +
 // small label) plus a secondary line, swapping between the live-results and the
 // per-person views. The featured number carries data-flip so it rolls (split-flap)
@@ -553,9 +615,10 @@ function renderCanvasHead(pred, hasConsensus) {
       ? ` · <span class="ch-resubmit">please resubmit</span>` : "";
     score.innerHTML =
       `<span class="ch-stat">` +
-        `<span class="ch-stat-num" data-flip="canvas:score">${pred.score}</span>` +
+        `<span class="ch-stat-num ch-bignum" data-flip="canvas:score">${pred.score.toLocaleString()}</span>` +
         `<span class="ch-stat-label">${plural(pred.score, "point", "points")}</span>` +
       `</span>` +
+      roundStrip(pred.roundSubtotals) +
       `<span class="ch-stat-sec">${pred.correctCount}/${decided || "—"} correct · rank #${pred.rank}${resubmit}</span>`;
   } else {
     title.textContent = "Live Results";
@@ -605,7 +668,7 @@ function renderLeaderboard() {
           <span class="lb-name"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
-          <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
+          <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score.toLocaleString()}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
           <span class="lb-caret" aria-hidden="true">${active ? "●" : "▸"}</span>
         </button>
       </li>
@@ -899,8 +962,8 @@ function renderPoolStats() {
         <h3>Pool at a glance</h3>
         <div class="stat-line"><span>Brackets in</span><strong data-flip="pool:bracketsIn">${n}</strong></div>
         <div class="stat-line"><span>Matches decided</span><strong data-flip="pool:decided">${decidedCount()}</strong></div>
-        <div class="stat-line"><span>Average score</span><strong data-flip="pool:avg">${avg.toFixed(1)}</strong></div>
-        <div class="stat-line"><span>Median / top</span><strong data-flip="pool:medianTop">${median} / ${board.length ? board[0].score : 0}</strong></div>
+        <div class="stat-line"><span>Average score</span><strong data-flip="pool:avg">${avg.toLocaleString(undefined, { maximumFractionDigits: 1 })}</strong></div>
+        <div class="stat-line"><span>Median / top</span><strong data-flip="pool:medianTop">${median.toLocaleString()} / ${(board.length ? board[0].score : 0).toLocaleString()}</strong></div>
         <div class="stat-line"><span>Chalk score</span><strong data-flip="pool:chalk">${chalk}%</strong></div>
       </div>
       <div class="stat-card stat-card-wide">

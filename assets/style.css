@@ -460,9 +460,10 @@ img.flag {
 .team-row.pick-correct .pick-mark { color: var(--gold-bright); }
 .team-row.pick-wrong .pick-mark { color: var(--red-card); }
 .team-row .pick-actual { flex: none; font-size: clamp(8px, 0.7vw, 11px); color: rgba(246,243,234,0.55); }
-/* Points earned on a correct pick (+1 … +8), shown beside the ✓ so the person
-   view reads like a scorecard. */
-.team-row .pick-points { flex: none; font-family: var(--font-mono); font-size: clamp(8px, 0.7vw, 11px); color: var(--gold-bright); font-weight: 700; }
+/* Upset bonus flag (🔥+N) on a correct R32 pick that beat the pool — shown beside
+   the ✓ so the boldest calls pop on the scorecard. Ordinary correct picks carry
+   no numeric badge (their place value would read as a giant, broken number). */
+.team-row .pick-points { flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: clamp(8px, 0.7vw, 11px); color: var(--gold-bright); font-weight: 700; }
 
 /* ---------- Pool consensus projection (live-results view) ---------- */
 /* Undecided slots are drawn in as the pool's score-weighted projection — a
@@ -492,6 +493,7 @@ img.flag {
 .team-row .proj-share {
   flex: none;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: clamp(8px, 0.7vw, 11px);
   font-weight: 700;
   color: var(--gold-bright);
@@ -644,17 +646,22 @@ textarea.json-box {
 
 /* ---------- Leaderboard / scoring ---------- */
 
+/* Two-line scoring key: the place-value chips on top, a one-line plain-language
+   note below (what the digits mean + the R32 upset bonus). Stacks so neither the
+   long weights nor the note ever crowd onto a single cramped row. */
 .scoring-key {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
   margin: 4px 0 18px;
 }
+.key-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 /* In the slim leaderboard topbar the chip row is inline chrome, so drop the
    block margin that would otherwise make the bar taller than the predictor's. */
 .topbar .scoring-key { margin: 0; }
 .key-chip {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 11px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -664,6 +671,15 @@ textarea.json-box {
   color: rgba(246,243,234,0.65);
 }
 .key-chip b { color: var(--gold-bright); margin-left: 4px; }
+.key-note {
+  margin: 0;
+  max-width: 62ch;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(246,243,234,0.5);
+}
+.key-note b { color: var(--gold-bright); font-weight: 700; }
 
 .results-stamp {
   font-family: var(--font-mono);
@@ -858,10 +874,12 @@ textarea.json-box {
   margin: 0;
   color: var(--chalk);
 }
-/* The readout: featured stat + optional secondary line, fenced off by a divider. */
+/* The readout STACKS: featured stat (big number + label) on top, then the
+   per-round chip strip, then the secondary line — never crammed onto one row.
+   Fenced off from the title by a divider. */
 .canvas-head .ch-score {
-  display: inline-flex; align-items: baseline; flex-wrap: wrap;
-  gap: clamp(8px, 1vw, 16px);
+  display: inline-flex; flex-direction: column; align-items: flex-start;
+  gap: clamp(6px, 0.9vh, 11px);
   padding-left: clamp(12px, 1.5vw, 20px);
   border-left: 1px solid var(--line-strong);
 }
@@ -874,6 +892,13 @@ textarea.json-box {
   line-height: 0.95;
   color: var(--gold-bright);
 }
+/* The per-person total is the headline — make it read like a stadium score:
+   bigger, tighter, with a soft gold glow so the number itself is the drama. */
+.ch-stat-num.ch-bignum {
+  font-size: clamp(30px, 4vw, 52px);
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 18px rgba(240,199,94,0.35), 0 1px 0 rgba(0,0,0,0.3);
+}
 .ch-stat-label {
   font-family: var(--font-display);
   text-transform: uppercase;
@@ -883,10 +908,50 @@ textarea.json-box {
 }
 .ch-stat-sec {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: clamp(11px, 1.1vw, 14px);
   color: rgba(246,243,234,0.72);
 }
 .canvas-head .ch-hint { font-family: var(--font-mono); font-size: 11px; color: rgba(246,243,234,0.5); margin-left: auto; align-self: center; }
+
+/* Per-round breakdown strip: one scoreboard chip per round, so the shape of a
+   score reads at a glance. Chips warm from cool (R32) toward gold (FINAL) so the
+   escalating stakes are legible as colour, not just number. A round with hits
+   brightens; a round with nothing decided yet dims. The R32 chip appends 🔥+N
+   when upset bonus was earned, keeping the TRUE R32 count honest next to the
+   possibly-inflated R32 digits in the total. */
+.round-strip { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+.round-chip {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(10px, 1vw, 12px);
+  padding: 3px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--line-strong);
+  background: rgba(246,243,234,0.03);
+  color: rgba(246,243,234,0.82);
+}
+.round-chip .rc-label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.82em;
+  color: rgba(246,243,234,0.5);
+}
+.round-chip .rc-count { font-weight: 700; }
+.round-chip .rc-slash { font-weight: 400; color: rgba(246,243,234,0.42); }
+.round-chip .rc-fire { font-size: 0.9em; color: var(--gold-bright); }
+/* Dim rounds not yet in play; brighten the label of rounds you've scored in. */
+.round-chip.is-dim { opacity: 0.5; }
+.round-chip.has-hits .rc-label { color: rgba(246,243,234,0.7); }
+/* Cool → gold escalation by round, applied as a left accent + tint so the strip
+   reads as a heat gradient toward the Final. */
+.round-chip.rc-r32   { border-color: rgba(121,196,220,0.35); }
+.round-chip.rc-r16   { border-color: rgba(121,196,220,0.5); }
+.round-chip.rc-qf    { border-color: rgba(212,168,67,0.45); }
+.round-chip.rc-sf    { border-color: rgba(212,168,67,0.7); }
+.round-chip.rc-final { border-color: var(--gold); background: rgba(212,168,67,0.12); }
+.round-chip.rc-final .rc-count { color: var(--gold-bright); }
 
 /* Split-flap (Solari board) roll: a clipped one-line viewport over a two-cell
    reel (old value above new); JS adds .flip-go to slide the reel up one cell,
@@ -905,8 +970,13 @@ textarea.json-box {
 /* Each cell is exactly one viewport-line tall; the reel is two → -50% lands on
    the second (new) value precisely. Digits have no descenders, so 1em clips clean. */
 .flip-cell { display: block; height: 1em; line-height: 1em; }
-/* Steady digit columns wherever a score can roll. */
-.lb-score, .lb-rank { font-variant-numeric: tabular-nums; }
+/* Steady digit columns everywhere a number is shown, so counts/scores/percentages
+   line up in fixed-width figures rather than jittering as digits change. All these
+   surfaces already use var(--font-mono); this just enables its tabular figures. */
+.lb-score, .lb-rank, .lb-correct,
+.stat-bar-val, .stat-card-mini .stat-line strong, .stat-sub,
+.cont-chip, .cont-split-head,
+.results-stamp { font-variant-numeric: tabular-nums; }
 
 /* The standings list and the pool-stat grid stack full-width (list on top,
    the 4-up stat cards below) so the cards get the whole page width — not a
