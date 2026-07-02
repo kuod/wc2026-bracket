@@ -853,8 +853,9 @@ textarea.json-box {
    single-line and trim. The trusted server write time (the one scoring uses), muted
    + mono so it reads as metadata, with the 🕒 keeping the cheating-aware theme.
    Left-aligned with tabular figures so the fixed-width "Jun 20, 02:30 PM" stamps
-   stack into a clean, readable column down the list. */
-.lb-submitted { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: start; text-align: left; margin-right: 16px; }
+   stack into a clean, readable column down the list. The 20px right margin makes
+   the time→flag gap match the flag→correct gap, so the columns breathe evenly. */
+.lb-submitted { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: start; text-align: left; margin-right: 20px; }
 /* "Please Resubmit" pill: the bracket was corrected after this person submitted,
    so their later-round picks were cleared. A muted red-card tint flags it as
    needs-attention without shouting; flex:none keeps it whole as the name ellipsizes. */
