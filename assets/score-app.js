@@ -11,21 +11,33 @@
 // renderSymmetricBracket used by the predictor). By default it shows reality;
 // clicking a name morphs it in place to that person's picks vs reality.
 
-// Points per round — POSITIONAL ENCODING: each round owns a digit-place, so the
-// total score reads right-to-left as your per-round correct counts. A score of
-// 112,509 decodes as R32 09 · R16 5 · QF 2 · SF 1 · FINAL 1. Max correct per
-// round (R32≤16, R16≤8, QF≤4, SF≤2, FINAL≤1) fits its field, so nothing carries:
-// R32 owns the ones+tens (00–99), each later round a single digit. Max base
-// score = 16·1 + 8·100 + 4·1000 + 2·10000 + 1·100000 = 124,816 → "1·2·4·8·16".
-const ROUND_POINTS = { R32: 1, R16: 100, QF: 1000, SF: 10000, FINAL: 100000 };
+// Points per round — POSITIONAL ENCODING: each round owns a digit-place (a "lane"),
+// so the total score reads right-to-left as your per-round correct counts, with one
+// shared HEAT lane in the middle for upset boldness. Reading high→low the lanes are:
+//   FINAL · SF · QF · R16 · 🔥HEAT · R32
+// A score of 12,482,509 decodes as FINAL 1 · SF 2 · QF 4 · R16 8 · HEAT 25 · R32 09.
+// Each round's max correct count (R32≤16, R16≤8, QF≤4, SF≤2, FINAL≤1) fits its lane;
+// R32 owns the ones+tens (00–99), HEAT the hundreds+thousands (00–99), and each later
+// round a single digit above that — so nothing carries between lanes (see HEAT below
+// and the digit-safety proof at scorePrediction). Max base (no heat) =
+// 16·1 + 8·10000 + 4·100000 + 2·1000000 + 1·10000000 = 12,480,016 → "1·2·4·8·__·16";
+// with max heat (80) it's 12,488,016.
+const ROUND_POINTS = { R32: 1, R16: 10000, QF: 100000, SF: 1000000, FINAL: 10000000 };
 
-// R32 upset bonus — the ONLY round with slack in its field (max count 16, field
-// holds 00–99), so a correct R32 pick that few brackets backed earns extra points
-// that ride *inside* the R32 field without carrying into the R16 hundreds digit.
-// Worst case 16 correct × 4 = 64 bonus + 16 count = 80 < 100 → always safe.
-// The bonus is 0 for a near-consensus winner and grows as the winner gets rarer.
-const R32_UPSET_MAX = 4;      // most bonus points a single bold R32 call can earn
-const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to score rarity
+// Upset HEAT — the game's boldness lane. A CORRECT pick that few brackets backed
+// earns heat sized by "rarity × round stakes": rarity = 1 − (winner's share among
+// brackets that picked the match), stakes DOUBLE each round so a late-round shock is
+// worth dramatically more than an early one. All rounds' heat is POOLED into one
+// shared lane (place value HEAT_POINTS) that sits between the R32 count and R16.
+// Digit-safe by construction: each round's worst-case heat is count×stake = 16
+// (16·1, 8·2, 4·4, 2·8, 1·16), so the pooled max is 80 < 100 → the two-digit HEAT
+// lane can never carry up into R16's field. Heat is 0 for a near-consensus winner
+// and only ever accrues on ON-TIME correct picks (late picks earn crowd-credit, no
+// heat — see scorePrediction). Gated so a match too few people picked never scores
+// (small samples make "rarity" meaningless).
+const HEAT_POINTS      = 100;   // the pooled upset lane's place value (hundreds+thousands)
+const HEAT_MIN_ELIGIBLE = 6;    // need ≥6 brackets to have picked a match to score rarity
+const HEAT_STAKE = { R32: 1, R16: 2, QF: 4, SF: 8, FINAL: 16 };  // round stakes, doubling each round
 
 // Cheating-aware "receipt credit". Submissions are open all tournament, so a pick
 // made AFTER its match was decided (submission timestamp past the result's known-at
@@ -33,7 +45,7 @@ const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to sc
 // only earns credit scaled by how much the crowd also backed that winner — a chalk
 // pick everyone made is harmless, a lone-wolf hindsight upset earns ≈0. See
 // matchKnownAt()/lateShare()/scorePrediction() below.
-const LATE_MIN_PICKERS  = 6;              // crowd sample needed before a share is meaningful (mirrors R32_MIN_ELIGIBLE)
+const LATE_MIN_PICKERS  = 6;              // crowd sample needed before a share is meaningful (mirrors HEAT_MIN_ELIGIBLE)
 const LATE_GUARD_CREDIT = 0.5;            // credit when neither crowd is big enough to judge
 // Gated floor for late-but-correct picks: a pick the crowd substantially backed
 // (share ≥ LATE_FLOOR_MIN_SHARE) is worth at least LATE_FLOOR — so a latecomer who
@@ -349,18 +361,21 @@ function pickState(matchId, guess) {
   return guess === actual ? "correct" : "wrong";
 }
 
-// Upset bonus for a CORRECT R32 pick: the fewer brackets that backed the actual
-// winner of that match, the bigger the reward. Rarity = 1 − (winner's share among
-// brackets that picked this match); a near-unanimous winner rounds to 0, a genuine
-// long shot to R32_UPSET_MAX. Guarded so a match too few people picked never scores
-// (small samples make "rarity" meaningless). Reuses tally() (hoisted below).
-function r32UpsetBonus(matchId, winner) {
+// Upset heat for a CORRECT pick in any round: the fewer brackets that backed the
+// actual winner of that match, the bigger the reward, scaled by the round's stakes.
+// heat = round(HEAT_STAKE[round] × rarity), rarity = 1 − (winner's share among
+// brackets that picked this match) — a near-unanimous winner rounds to 0, a genuine
+// long shot to the round's full stake (R32 1 … FINAL 16). Guarded so a match too few
+// people picked never scores (small samples make "rarity" meaningless). Reuses
+// tally() (hoisted below). Returned as raw heat "points" (folded into the shared
+// HEAT lane by scorePrediction, so the caller doesn't apply a place value here).
+function upsetHeat(matchId, winner, roundKey) {
   const dist = tally(matchId);
   const eligible = dist.reduce((s, d) => s + d.count, 0);
-  if (eligible < R32_MIN_ELIGIBLE) return 0;
+  if (eligible < HEAT_MIN_ELIGIBLE) return 0;
   const hit = dist.find(d => d.team === winner);
   const share = hit ? hit.share : 0;
-  return Math.round(R32_UPSET_MAX * (1 - share));
+  return Math.round((HEAT_STAKE[roundKey] || 0) * (1 - share));
 }
 
 // When a match's result became KNOWABLE, as epoch-ms — or null if we can't tell
@@ -455,15 +470,20 @@ function lateShare(matchId, winner, knownAt) {
   return LATE_GUARD_CREDIT;
 }
 
-// Digit-safety of receipt credit (must not carry across rounds — see ROUND_POINTS):
-// per round we sum late shares (each ≤ 1) and fold them in as whole "units" via
-// floor(sum + 0.5), so lateUnits ≤ lateCount. Thus a round's field usage is
-// onTimeCorrect + lateUnits ≤ matchesInRound: <10 for R16/QF/SF/FINAL (one digit
-// each), and for R32 the ≤80<100 on-time worst case only SHRINKS when a pick goes
-// late (its up-to-4 upset bonus is stripped, contribution capped at ~1). Every
-// per-round contribution stays an integer multiple of ROUND_POINTS[round].
+// Digit-safety (nothing may carry between lanes — see ROUND_POINTS). Two mechanisms
+// fold non-count credit in without breaching a lane:
+//   • Upset heat: pooled across ALL rounds into ONE accumulator, folded once as
+//     totalHeat × HEAT_POINTS. Each round contributes at most count×stake = 16
+//     (16·1, 8·2, 4·4, 2·8, 1·16), so totalHeat ≤ 80 → 8000 < 10000 (never reaches
+//     R16's lane). Heat accrues on ON-TIME correct picks only.
+//   • Receipt credit: per round we sum late shares (each ≤ 1) and fold them as whole
+//     "units" via floor(sum + 0.5), so lateUnits ≤ lateCount. A round's COUNT lane
+//     usage is onTimeCorrect + lateUnits ≤ matchesInRound: ≤16 for R32 (ones+tens),
+//     ≤8/4/2/1 for R16/QF/SF/FINAL (one digit each). Late picks carry no heat.
+// Every lane's contribution stays an integer multiple of its place value.
 function scorePrediction(pred) {
   let score = 0;
+  let totalHeat = 0;   // pooled upset heat across all rounds → the shared HEAT lane
   const breakdown = [];
   const roundSubtotals = {};
   const subTs = Date.parse(pred.timestamp || pred.submittedAt);
@@ -485,19 +505,19 @@ function scorePrediction(pred) {
         const knownAt = matchKnownAt(match.id);
         late = !graced && knownAt != null && !isNaN(subTs) && subTs > knownAt;
         if (late) {
-          // Late: no base points inline, no upset bonus — only crowd-share credit,
+          // Late: no base points inline, no upset heat — only crowd-share credit,
           // accumulated and folded in per round below to keep the digit encoding.
           share = lateShare(match.id, actual, knownAt);
           roundLateShares += share;
           roundLateCount++;
         } else {
           score += ROUND_POINTS[round.key];
-          // R32 is the only round that carries an upset bonus (its field has room).
-          if (round.key === "R32") {
-            bonus = r32UpsetBonus(match.id, actual);
-            score += bonus;          // R32 weight is 1, so this lands in the ones/tens field
-            roundBonus += bonus;
-          }
+          // Upset heat: every round can earn it now, scaled by round stakes. Pooled
+          // into totalHeat and folded into the shared HEAT lane after the loop (NOT
+          // added inline — it rides its own lane, not the round's count field).
+          bonus = upsetHeat(match.id, actual, round.key);
+          totalHeat += bonus;
+          roundBonus += bonus;
         }
       }
       breakdown.push({ matchId: match.id, round: round.key, guess, actual, state, bonus, late, share });
@@ -508,6 +528,8 @@ function scorePrediction(pred) {
     roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length,
                                   bonus: roundBonus, lateCount: roundLateCount, lateUnits };
   }
+  // Fold the pooled upset heat into its shared lane, once (≤ 80 × 100 = 8000 < 10000).
+  score += totalHeat * HEAT_POINTS;
   return { score, breakdown, roundSubtotals };
 }
 
@@ -632,7 +654,7 @@ function projFeederTeam(roundKey, match, side, consensus) {
 //  - Reality (no pred): both teams of the real matchup; actual winner gold.
 //  - Person (pred set): both teams of THEIR predicted matchup, with the team
 //    they picked to advance marked correct / wrong / pending vs reality and, on
-//    a correct R32 pick that beat the pool, badged with its 🔥 upset bonus.
+//    a correct pick that beat the pool, badged with its 🔥 upset heat.
 function canvasCard(roundKey, match, pred, consensus) {
   function row(team, opts) {
     opts = opts || {};
@@ -649,12 +671,13 @@ function canvasCard(roundKey, match, pred, consensus) {
       : (opts.win || opts.chosen ? " selected"
       : `${opts.projected ? " projected" : ""}${opts.favored ? " proj-favored" : ""}`);
     const mark = opts.state === "correct" ? "✓" : opts.state === "wrong" ? "✗" : "";
-    // Upset chip: shown only on a correct R32 pick that earned an upset bonus (the
-    // one round that carries one). Raw place values (+100000) would look broken in
-    // a match cell, so ordinary correct picks lean on the ✓ + card position; the
-    // 🔥 flags the picks that actually beat the pool.
+    // Upset chip: shown on any correct pick that earned upset heat (few brackets
+    // backed this winner). The number is the heat earned — scaled by round stakes,
+    // so a late-round shock badges a bigger 🔥+N than an early one. Raw score place
+    // values would look broken in a match cell, so ordinary correct picks lean on
+    // the ✓ + card position; the 🔥 flags the picks that actually beat the pool.
     const pts = opts.bonus
-      ? `<span class="pick-points" title="Upset bonus — few brackets backed this winner">🔥+${opts.bonus}</span>` : "";
+      ? `<span class="pick-points" title="Upset heat — few brackets backed this winner (rarity × round stakes)">🔥+${opts.bonus}</span>` : "";
     // Late chip: a correct pick submitted AFTER its result was known. A late pick
     // never carries an upset bonus, so 🕒 slots into the same place 🔥 would have.
     const receipt = opts.receipt
@@ -711,8 +734,8 @@ function canvasCard(roundKey, match, pred, consensus) {
   // other team — the one they predicted would lose here — is shown plain.
   const guess = pred.picks[match.id];
   const state = pickState(match.id, guess);
-  // Per-pick upset bonus, read from the breakdown computed at scoring time (only
-  // ever non-zero on a correct R32 pick). Used to badge the pick with 🔥+N.
+  // Per-pick upset heat, read from the breakdown computed at scoring time (non-zero
+  // on any correct pick the crowd under-backed). Used to badge the pick with 🔥+N.
   const bd = pred.breakdown && pred.breakdown.find(b => b.matchId === match.id);
   const bonus = state === "correct" && bd ? (bd.bonus || 0) : 0;
   // Receipt state for this pick (correct but submitted late → crowd-credit only).
@@ -771,18 +794,17 @@ function renderBracketCanvas() {
 
 // The per-round breakdown, as a row of scoreboard chips: one per round, each
 // showing correct/total, tinted progressively toward gold as the round's stakes
-// climb (R32 cool → FINAL gold) so the score's shape reads at a glance. Because
-// the R32 field also carries the upset bonus, its chip shows the TRUE count and
-// appends "🔥+N" when bonus was earned — so the strip never lies about how many
-// R32 games were actually called right, even when the score's R32 digits are
-// inflated. Rounds with nothing decided yet are dimmed but still shown.
+// climb (R32 cool → FINAL gold) so the score's shape reads at a glance. Every
+// round's chip shows its PURE correct count and appends "🔥+N" when that round
+// earned upset heat (heat rides its own shared lane in the score, so the counts
+// are always honest). Rounds with nothing decided yet are dimmed but still shown.
 function roundStrip(subs) {
   if (!subs) return "";
   const chips = ROUNDS.map(r => {
     const s = subs[r.key] || { correct: 0, total: r.matches.length, decided: 0, bonus: 0, lateCount: 0 };
     const live = s.decided > 0;
-    const fire = r.key === "R32" && s.bonus > 0
-      ? `<span class="rc-fire" title="Upset bonus earned">🔥+${s.bonus}</span>` : "";
+    const fire = s.bonus > 0
+      ? `<span class="rc-fire" title="Upset heat earned this round">🔥+${s.bonus}</span>` : "";
     // Late glyph: some of this round's correct picks were submitted late and
     // scored on crowd-credit. Muted so it flags the fact without shouting.
     const receipt = s.lateCount > 0

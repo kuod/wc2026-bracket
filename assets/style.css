@@ -702,6 +702,14 @@ textarea.json-box {
   color: rgba(246,243,234,0.65);
 }
 .key-chip b { color: var(--gold-bright); margin-left: 4px; }
+/* The Heat chip reads as fire, not a round: a warm tint + border so the middle
+   "boldness" lane stands apart from the plain round place-value chips flanking it. */
+.key-chip-heat {
+  border-color: rgba(240,120,60,0.55);
+  color: rgba(255,214,196,0.85);
+  background: rgba(240,120,60,0.10);
+}
+.key-chip-heat b { color: #ffb27a; }
 .key-note {
   margin: 0;
   /* Two lines for the full legend (incl. the late-submission clause) without
@@ -760,8 +768,9 @@ textarea.json-box {
      2-digit one ("19pts"), which shrank the 1fr name and drifted the flag
      sideways. The name (1fr) now absorbs all per-row variance; the numbers are
      right-aligned below so their digits hold a steady right edge as scores grow
-     (widths sized for the endgame "112,509pts" / "31/31", incl. portrait bumps). */
-  grid-template-columns: 40px minmax(0, 1fr) auto 64px 50px 92px 20px;
+     (score col sized for the endgame "12,488,016pts" — the Heat lane pushes the
+     total to 8 digits — plus "31/31"; incl. portrait bumps). */
+  grid-template-columns: 40px minmax(0, 1fr) auto 64px 50px 124px 20px;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -880,7 +889,7 @@ textarea.json-box {
 /* Right-aligned in their now fixed-width columns, so the digits hold a steady
    right edge as counts/scores grow through the tournament. */
 .lb-correct { font-family: var(--font-mono); font-size: 13px; color: rgba(246,243,234,0.7); white-space: nowrap; justify-self: end; }
-.lb-score { font-family: var(--font-mono); font-size: 17px; font-weight: 700; color: var(--gold-bright); white-space: nowrap; justify-self: end; }
+.lb-score { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--gold-bright); white-space: nowrap; justify-self: end; }
 .lb-score .muted, .lb-correct .muted { font-size: 11px; font-weight: 400; margin-left: 2px; }
 .lb-caret { color: rgba(246,243,234,0.4); text-align: center; }
 .lb-entry.is-active .lb-caret { color: var(--gold-bright); }
@@ -956,10 +965,13 @@ textarea.json-box {
   color: var(--gold-bright);
 }
 /* The per-person total is the headline — make it read like a stadium score:
-   bigger, tighter, with a soft gold glow so the number itself is the drama. */
+   bigger, tighter, with a soft gold glow so the number itself is the drama.
+   Sized down from the old 6-digit era: the Heat lane makes the total routinely
+   8 digits ("12,488,016"), so a tighter ceiling + negative tracking keeps the
+   headline from crowding the hero band. */
 .ch-stat-num.ch-bignum {
-  font-size: clamp(30px, 4vw, 52px);
-  letter-spacing: -0.01em;
+  font-size: clamp(26px, 3.2vw, 42px);
+  letter-spacing: -0.02em;
   text-shadow: 0 0 18px rgba(240,199,94,0.35), 0 1px 0 rgba(0,0,0,0.3);
 }
 .ch-stat-label {
@@ -1498,12 +1510,12 @@ footer.site-footer {
   .bracket-region .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
   .bracket-region .sym-R32 .team-row .flag { width: 20px; height: 14px; }
 
-  /* Reserve the standings points column for the max possible score (124,880 →
-     "124,880pts" at 18px here) so it never clips as scores climb. Keep the
-     submitted-time column (the `auto` track after the name) so the 7 cells line
-     up with the base grid — otherwise later columns bleed into each other and the
-     caret wraps to a second line. */
-  .lb-row { grid-template-columns: 40px minmax(0, 1fr) auto 64px 50px 108px 20px; }
+  /* Reserve the standings points column for the max possible score (12,488,016 →
+     "12,488,016pts" at 18px here) so it never clips as scores climb — the Heat lane
+     pushes the total to 8 digits. Keep the submitted-time column (the `auto` track
+     after the name) so the 7 cells line up with the base grid — otherwise later
+     columns bleed into each other and the caret wraps to a second line. */
+  .lb-row { grid-template-columns: 40px minmax(0, 1fr) auto 64px 50px 150px 20px; }
 
   /* Scoreboard hero on phones: the 1024px layout is scaled ~0.38x to the screen,
      so size the readout up to stay legible and keep the banner proportionate. */
