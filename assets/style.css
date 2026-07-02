@@ -812,7 +812,9 @@ textarea.json-box {
      TRUE column only because the CONTENT is effectively constant-width every row: the
      stamp is a fixed-format "Jun 20, 02:30 PM" tabular-nums string, and the flag is a 27px
      img + a mono 3-letter code (so GHA/SUI/III all measure identical — no proportional
-     drift). And the flag's LEFT edge stays rock-steady regardless of the time content
+     drift; the code's size is pinned on .lb-champ below so scored `<button>` rows and
+     locked `<div>` rows — which have different UA-default font-sizes — measure identically
+     too). And the flag's LEFT edge stays rock-steady regardless of the time content
      (an empty stamp, or the locked-row 🔒 prefix): the 1fr name track absorbs whatever the
      time track doesn't use, so the time width cancels out of the flag's position entirely.
      "31/31" (correct)
@@ -942,8 +944,13 @@ textarea.json-box {
 /* The same nudge inline in the per-person hero stat line. */
 .ch-resubmit { color: var(--red-card); font-weight: 700; }
 /* 4px right margin → 16px flag→correct gutter (12px grid gap + 4px), matching the
-   time→flag breather set on .lb-submitted, so the flag sits evenly spaced on both sides. */
-.lb-champ { display: flex; align-items: center; justify-self: start; margin-right: 4px; }
+   time→flag breather set on .lb-submitted, so the flag sits evenly spaced on both sides.
+   font-size pins the champion code: scored rows are <button> (UA font-size 13.333px) and
+   locked rows are <div> (inherits 16px), so an unpinned code renders ~1.2× wider in the
+   locked row, inflating the auto flag track and drifting its flag ~5px left. 13px (= the
+   sibling .lb-correct; portrait bumps both to 15px) normalizes it so the flag column lines
+   up across both row types. */
+.lb-champ { display: flex; align-items: center; justify-self: start; margin-right: 4px; font-size: 13px; }
 /* Correct-count LEFT-aligned: its left edge (the one adjacent to the flag) then holds
    steady row-to-row, so the flag→correct gutter is exactly the grid `gap` on every row
    — matching time→flag — instead of drifting with the count's digit width. The small
