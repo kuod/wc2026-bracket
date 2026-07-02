@@ -936,7 +936,7 @@ function renderLeaderboard() {
           <span class="lb-name"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>
           ${submittedEl}
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
-          <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
+          <span class="lb-correct"><span class="lb-correct-n">${p.correctCount}</span><span class="muted">/${decided || "—"}</span></span>
           <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score.toLocaleString()}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
           <span class="lb-caret" aria-hidden="true">${active ? "●" : "▸"}</span>
         </button>
