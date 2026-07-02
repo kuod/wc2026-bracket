@@ -11,33 +11,41 @@
 // renderSymmetricBracket used by the predictor). By default it shows reality;
 // clicking a name morphs it in place to that person's picks vs reality.
 
-// Points per round — POSITIONAL ENCODING: each round owns a digit-place (a "lane"),
-// so the total score reads right-to-left as your per-round correct counts, with one
-// shared HEAT lane in the middle for upset boldness. Reading high→low the lanes are:
-//   FINAL · SF · QF · R16 · 🔥HEAT · R32
-// A score of 12,482,509 decodes as FINAL 1 · SF 2 · QF 4 · R16 8 · HEAT 25 · R32 09.
-// Each round's max correct count (R32≤16, R16≤8, QF≤4, SF≤2, FINAL≤1) fits its lane;
-// R32 owns the ones+tens (00–99), HEAT the hundreds+thousands (00–99), and each later
-// round a single digit above that — so nothing carries between lanes (see HEAT below
-// and the digit-safety proof at scorePrediction). Max base (no heat) =
-// 16·1 + 8·10000 + 4·100000 + 2·1000000 + 1·10000000 = 12,480,016 → "1·2·4·8·__·16";
-// with max heat (80) it's 12,488,016.
-const ROUND_POINTS = { R32: 1, R16: 10000, QF: 100000, SF: 1000000, FINAL: 10000000 };
+// Points per round — POSITIONAL ENCODING: each round owns TWO adjacent digit-places
+// (a "lane pair"), so the total score reads right-to-left as your per-round correct
+// counts, each with its OWN upset-boldness (🔥HEAT) digit interleaved directly beneath
+// its count. Reading high→low the lanes are:
+//   FINAL · FINAL🔥 · SF · SF🔥 · QF · QF🔥 · R16 · R16🔥 · R32 · R32🔥
+// A score of 10,203,040,517 decodes as FINAL 1 (🔥0) · SF 2 (🔥0) · QF 3 (🔥0) ·
+// R16 4 (🔥0) · R32 51 (🔥7) — i.e. read the pairs. Each round's count fits its base
+// lane (R32≤16 spans TWO digits, R16≤8/QF≤4/SF≤2/FINAL≤1 each one digit) and each
+// round's heat is a single digit 0–9 in the place just below it.
+// Because heat is only earned on a CORRECT pick, a round's heat digit never rides
+// without its count — so place value alone makes any later-round contribution
+// outrank the ENTIRE block beneath it (strict tiers, never overlap; no floors needed).
+// Nothing carries between lanes (see HEAT below + the digit-safety proof at
+// scorePrediction). Max = 1·10000000000 + 9·1000000000 + 2·100000000 + 9·10000000
+// + 4·1000000 + 9·100000 + 8·10000 + 9·1000 + 16·10 + 9·1 = 19,294,989,169.
+const ROUND_POINTS = { R32: 10, R16: 10000, QF: 1000000, SF: 100000000, FINAL: 10000000000 };
 
-// Upset HEAT — the game's boldness lane. A CORRECT pick that few brackets backed
+// Upset HEAT — the game's boldness lanes. A CORRECT pick that few brackets backed
 // earns heat sized by "rarity × round stakes": rarity = 1 − (winner's share among
-// brackets that picked the match), stakes DOUBLE each round so a late-round shock is
-// worth dramatically more than an early one. All rounds' heat is POOLED into one
-// shared lane (place value HEAT_POINTS) that sits between the R32 count and R16.
-// Digit-safe by construction: each round's worst-case heat is count×stake = 16
-// (16·1, 8·2, 4·4, 2·8, 1·16), so the pooled max is 80 < 100 → the two-digit HEAT
-// lane can never carry up into R16's field. Heat is 0 for a near-consensus winner
-// and only ever accrues on ON-TIME correct picks (late picks earn crowd-credit, no
-// heat — see scorePrediction). Gated so a match too few people picked never scores
-// (small samples make "rarity" meaningless).
-const HEAT_POINTS      = 100;   // the pooled upset lane's place value (hundreds+thousands)
+// brackets that picked the match), stakes CLIMB each round so a late-round shock is
+// worth dramatically more than an early one. Unlike the old single pooled lane, each
+// round now has its OWN one-digit heat lane (place value HEAT_PLACE[round]) sitting
+// just below that round's count — so a Final upset (billions place) mathematically
+// dwarfs a whole sweep of R32 upsets (ones place). A round's heat digit is the sum of
+// its per-match heat, capped at HEAT_MAX_DIGIT (9). Digit-safe by construction: a
+// round's count+heat can't reach the next round's heat place — R32 tops out at
+// 16·10 + 9 = 169 < 1000 (R16🔥), and every later round's count (≤8/4/2/1) + heat (≤9)
+// stays well under its next-heat place. Heat is 0 for a near-consensus winner and only
+// ever accrues on ON-TIME correct picks (late picks earn crowd-credit, no heat — see
+// scorePrediction). Gated so a match too few people picked never scores (small samples
+// make "rarity" meaningless).
+const HEAT_PLACE       = { R32: 1, R16: 1000, QF: 100000, SF: 10000000, FINAL: 1000000000 };  // each round's heat-digit place value
+const HEAT_MAX_DIGIT    = 9;    // per-round heat is a single digit (sum of per-match heat, capped)
 const HEAT_MIN_ELIGIBLE = 6;    // need ≥6 brackets to have picked a match to score rarity
-const HEAT_STAKE = { R32: 1, R16: 2, QF: 4, SF: 8, FINAL: 16 };  // round stakes, doubling each round
+const HEAT_STAKE = { R32: 1, R16: 2, QF: 3, SF: 5, FINAL: 9 };  // per-match round stakes (1-digit-friendly)
 
 // Cheating-aware "receipt credit". Submissions are open all tournament, so a pick
 // made AFTER its match was decided (submission timestamp past the result's known-at
@@ -365,10 +373,10 @@ function pickState(matchId, guess) {
 // actual winner of that match, the bigger the reward, scaled by the round's stakes.
 // heat = round(HEAT_STAKE[round] × rarity), rarity = 1 − (winner's share among
 // brackets that picked this match) — a near-unanimous winner rounds to 0, a genuine
-// long shot to the round's full stake (R32 1 … FINAL 16). Guarded so a match too few
+// long shot to the round's full stake (R32 1 … FINAL 9). Guarded so a match too few
 // people picked never scores (small samples make "rarity" meaningless). Reuses
-// tally() (hoisted below). Returned as raw heat "points" (folded into the shared
-// HEAT lane by scorePrediction, so the caller doesn't apply a place value here).
+// tally() (hoisted below). Returned as raw PER-MATCH heat "points"; scorePrediction
+// sums them per round and caps at one digit before applying the round's heat place.
 function upsetHeat(matchId, winner, roundKey) {
   const dist = tally(matchId);
   const eligible = dist.reduce((s, d) => s + d.count, 0);
@@ -471,19 +479,19 @@ function lateShare(matchId, winner, knownAt) {
 }
 
 // Digit-safety (nothing may carry between lanes — see ROUND_POINTS). Two mechanisms
-// fold non-count credit in without breaching a lane:
-//   • Upset heat: pooled across ALL rounds into ONE accumulator, folded once as
-//     totalHeat × HEAT_POINTS. Each round contributes at most count×stake = 16
-//     (16·1, 8·2, 4·4, 2·8, 1·16), so totalHeat ≤ 80 → 8000 < 10000 (never reaches
-//     R16's lane). Heat accrues on ON-TIME correct picks only.
+// fold non-count credit into a round's own lane pair without breaching the next round:
+//   • Upset heat: summed PER ROUND from on-time correct picks, capped at one digit
+//     (min(9, Σ per-match heat)), then folded as heatDigit × HEAT_PLACE[round]. A
+//     round's count + heat can't reach the next round's heat place: R32 = 16·10 + 9
+//     = 169 < 1000 (R16🔥); R16 = 8·10000 + 9·1000 = 89000 < 100000 (QF🔥); and so on
+//     up the ladder. Heat accrues on ON-TIME correct picks only.
 //   • Receipt credit: per round we sum late shares (each ≤ 1) and fold them as whole
 //     "units" via floor(sum + 0.5), so lateUnits ≤ lateCount. A round's COUNT lane
-//     usage is onTimeCorrect + lateUnits ≤ matchesInRound: ≤16 for R32 (ones+tens),
-//     ≤8/4/2/1 for R16/QF/SF/FINAL (one digit each). Late picks carry no heat.
+//     usage is onTimeCorrect + lateUnits ≤ matchesInRound: ≤16 for R32 (its two
+//     digits), ≤8/4/2/1 for R16/QF/SF/FINAL. Late picks carry no heat.
 // Every lane's contribution stays an integer multiple of its place value.
 function scorePrediction(pred) {
   let score = 0;
-  let totalHeat = 0;   // pooled upset heat across all rounds → the shared HEAT lane
   const breakdown = [];
   const roundSubtotals = {};
   const subTs = Date.parse(pred.timestamp || pred.submittedAt);
@@ -492,7 +500,7 @@ function scorePrediction(pred) {
   // 8 matches are decided, so everything is graced while the round is still filling.
   const graced = !isNaN(subTs) && subTs <= graceUntilMs();
   for (const round of ROUNDS) {
-    let roundCorrect = 0, roundDecided = 0, roundBonus = 0;
+    let roundCorrect = 0, roundDecided = 0, roundHeatRaw = 0;
     let roundLateShares = 0, roundLateCount = 0;
     for (const match of round.matches) {
       const guess = pred.picks[match.id];
@@ -512,24 +520,26 @@ function scorePrediction(pred) {
           roundLateCount++;
         } else {
           score += ROUND_POINTS[round.key];
-          // Upset heat: every round can earn it now, scaled by round stakes. Pooled
-          // into totalHeat and folded into the shared HEAT lane after the loop (NOT
-          // added inline — it rides its own lane, not the round's count field).
+          // Per-match upset heat; summed across the round and capped to one digit
+          // below, then folded into THIS round's own heat lane (not added inline —
+          // it rides the heat place just under the round's count).
           bonus = upsetHeat(match.id, actual, round.key);
-          totalHeat += bonus;
-          roundBonus += bonus;
+          roundHeatRaw += bonus;
         }
       }
       breakdown.push({ matchId: match.id, round: round.key, guess, actual, state, bonus, late, share });
     }
+    // Fold this round's heat digit (sum capped at 9) into its own heat lane.
+    const heatDigit = Math.min(HEAT_MAX_DIGIT, roundHeatRaw);
+    score += heatDigit * HEAT_PLACE[round.key];
     // Fold this round's receipt credit in as whole units × the round weight.
     const lateUnits = Math.floor(roundLateShares + 0.5);
     score += lateUnits * ROUND_POINTS[round.key];
+    // roundSubtotals.bonus holds the CAPPED heat digit — exactly what landed in the
+    // score — so the round strip's 🔥+N reads true against the total.
     roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length,
-                                  bonus: roundBonus, lateCount: roundLateCount, lateUnits };
+                                  bonus: heatDigit, lateCount: roundLateCount, lateUnits };
   }
-  // Fold the pooled upset heat into its shared lane, once (≤ 80 × 100 = 8000 < 10000).
-  score += totalHeat * HEAT_POINTS;
   return { score, breakdown, roundSubtotals };
 }
 
@@ -671,13 +681,12 @@ function canvasCard(roundKey, match, pred, consensus) {
       : (opts.win || opts.chosen ? " selected"
       : `${opts.projected ? " projected" : ""}${opts.favored ? " proj-favored" : ""}`);
     const mark = opts.state === "correct" ? "✓" : opts.state === "wrong" ? "✗" : "";
-    // Upset chip: shown on any correct pick that earned upset heat (few brackets
-    // backed this winner). The number is the heat earned — scaled by round stakes,
-    // so a late-round shock badges a bigger 🔥+N than an early one. Raw score place
-    // values would look broken in a match cell, so ordinary correct picks lean on
-    // the ✓ + card position; the 🔥 flags the picks that actually beat the pool.
+    // Upset flame: shown on any correct pick that earned upset heat (few brackets
+    // backed this winner). Just the 🔥 next to the ✓ — a flag, not a number; the
+    // numeric heat (🔥+N) lives only in the round strip under a person's score, so
+    // the bracket stays clean and reads "✓🔥" = "you called this bold one right".
     const pts = opts.bonus
-      ? `<span class="pick-points" title="Upset heat — few brackets backed this winner (rarity × round stakes)">🔥+${opts.bonus}</span>` : "";
+      ? `<span class="pick-points" title="Bold pick — few brackets backed this winner">🔥</span>` : "";
     // Late chip: a correct pick submitted AFTER its result was known. A late pick
     // never carries an upset bonus, so 🕒 slots into the same place 🔥 would have.
     const receipt = opts.receipt
@@ -796,8 +805,10 @@ function renderBracketCanvas() {
 // showing correct/total, tinted progressively toward gold as the round's stakes
 // climb (R32 cool → FINAL gold) so the score's shape reads at a glance. Every
 // round's chip shows its PURE correct count and appends "🔥+N" when that round
-// earned upset heat (heat rides its own shared lane in the score, so the counts
-// are always honest). Rounds with nothing decided yet are dimmed but still shown.
+// earned upset heat (the capped heat DIGIT that landed in that round's heat lane —
+// so the number reads true against the total). This is the ONLY place the numeric
+// heat shows; bracket cards just flag it with 🔥. Rounds with nothing decided yet
+// are dimmed but still shown.
 function roundStrip(subs) {
   if (!subs) return "";
   const chips = ROUNDS.map(r => {
