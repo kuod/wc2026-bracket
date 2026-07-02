@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-02T20:46:08Z",
+  "generatedAt": "2026-07-02T21:31:16Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -191,18 +191,18 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-02T00:00Z"
     },
     "R32-11": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "Spain",
       "teamB": "Austria",
-      "winner": null,
+      "winner": "Spain",
       "homeTeam": "Spain",
       "awayTeam": "Austria",
-      "homeScore": "1",
+      "homeScore": "3",
       "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "2H",
+      "decidedBy": "FT",
       "sportsDbEventId": "2503636",
       "source": "TheSportsDB",
       "completedAt": "2026-07-02",
@@ -338,7 +338,7 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "R16",
       "teamA": null,
-      "teamB": null,
+      "teamB": "Spain",
       "winner": null
     },
     "R16-4": {
@@ -472,9 +472,9 @@ window.WC2026_RESULTS = {
       "eventId": "760506",
       "source": "ESPN",
       "home": "Round of 32 11 Winner",
-      "away": "Round of 32 12 Winner",
+      "away": "Spain",
       "resolvedHome": null,
-      "resolvedAway": null
+      "resolvedAway": "Spain"
     },
     {
       "eventId": "760509",
