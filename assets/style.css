@@ -1409,19 +1409,19 @@ footer.site-footer {
   .stat-bar-val { font-size: 14px; }
   .cont-chip { font-size: 16px; }
   #bracket-canvas-root .team-row { font-size: 13px; }
-  #bracket-canvas-root .sym-R32 .team-row { font-size: 12px; }
+  #bracket-canvas-root .sym-R32 .team-row { font-size: 13px; }
 
   /* ---- Phone bracket readability (leaderboard canvas only) ----
      The bracket is a fixed 9-column grid, so it's zero-sum horizontally. These
      rules make it legible on a phone by (a) abbreviating + enlarging the round
-     labels, (b) enlarging the settled goal score (the decided-match result — the
-     card's hero) while keeping the pool-% small and inline, and (c) reclaiming a
-     few pixels via tighter padding/gaps + a smaller R32 flag so a penalty
-     scoreline "1(4)" never truncates a 3-letter code. Scoped to
-     #bracket-canvas-root so the predictor page is untouched.
+     labels, (b) rendering the code and the settled goal score at the SAME size
+     (the score inherits the row font) while keeping the pool-% small and inline,
+     and (c) reclaiming a few pixels of padding/gap across every round so a
+     penalty scoreline "1(4)" never truncates a 3-letter code — in any round.
+     Scoped to #bracket-canvas-root so the predictor page is untouched.
      Note: a card is either DECIDED (shows .team-score, no %) or PROJECTED (shows
-     .proj-share, no goal) — the two never share a row, so a big goal never fights
-     the %. */
+     .proj-share, no goal) — the two never share a row. The connector geometry is
+     left at the shared default (see below) so it reads identically to predict. */
 
   /* (a) Round labels: full names are unreadably small on a phone column, so swap
      to short codes rendered large via ::after. */
@@ -1433,20 +1433,21 @@ footer.site-footer {
   #bracket-canvas-root .sym-label:nth-child(4)::after, #bracket-canvas-root .sym-label:nth-child(6)::after { content: "SF"; }
   #bracket-canvas-root .sym-label:nth-child(5)::after { content: "Final"; }
 
-  /* (b) The settled goal is the result of a played match — the card's headline —
-     so give it proper size on a phone (bigger than the code beside it). The
-     pool-% stays small and inline: it's secondary metadata and there's room for
-     it (its projection cards carry no goal score). Bounded so even a penalty
-     "1(4)" leaves the 3-letter code un-truncated in the tight R32 column. */
-  #bracket-canvas-root .team-row .team-score { font-size: 14px; }
+  /* (b) The settled goal (a played match's result) and the country code render
+     at the SAME size: .team-score sets no font-size, so it inherits the 13px row
+     — so "GER" and "1(3)" read as one scoreline. The pool-% stays small and
+     inline (secondary metadata; its projection cards carry no goal score). */
   #bracket-canvas-root .team-row .proj-share { font-size: 9px; }
 
-  /* (c) Reclaim a few pixels uniformly (not by widening R32, which would steal
-     from the already-tight middle rounds) so "1(4)" never truncates a 3-letter
-     code. Borders stay, so the cards still read as a wallchart. */
-  #bracket-canvas-root .sym-labels, #bracket-canvas-root .sym-bracket { column-gap: 4px; }
+  /* (c) Reclaim a few pixels of padding + inner gap on EVERY round (not just
+     R32) so a penalty "1(4)" never truncates a 3-letter code even in the
+     later-round cards, which carry a bigger flag + wider padding. Borders stay,
+     so the cards still read as a wallchart. The column-gap is intentionally NOT
+     touched: it must stay at the shared default (clamp(4px,0.6vw,12px)) so the
+     connector prong — sized to the same clamp — bridges the gutter and kisses
+     the feeder card exactly as on predict, rather than overshooting into it. */
   #bracket-canvas-root .match-card { padding-left: 3px; padding-right: 3px; }
-  #bracket-canvas-root .sym-R32 .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
+  #bracket-canvas-root .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
   #bracket-canvas-root .sym-R32 .team-row .flag { width: 20px; height: 14px; }
 
   /* Reserve the standings points column for the max possible score (124,880 →
