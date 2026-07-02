@@ -466,6 +466,10 @@ img.flag {
    the ✓ so the boldest calls pop on the scorecard. Ordinary correct picks carry
    no numeric badge (their place value would read as a giant, broken number). */
 .team-row .pick-points { flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: clamp(8px, 0.7vw, 11px); color: var(--gold-bright); font-weight: 700; }
+/* Receipt chip: a correct pick submitted after its result was known (crowd-credit
+   only, no upset bonus). Sits where 🔥 would; slightly muted so it flags rather
+   than celebrates. */
+.team-row .pick-receipt { flex: none; font-size: clamp(8px, 0.7vw, 11px); opacity: 0.85; }
 
 /* ---------- Pool consensus projection (live-results view) ---------- */
 /* Undecided slots are drawn in as the pool's score-weighted projection — a
@@ -594,6 +598,15 @@ input[type="text"]:focus, input[type="email"]:focus, textarea:focus, select:focu
 }
 .btn-ghost:hover { border-color: var(--gold-bright); color: var(--gold-bright); }
 
+/* "Submissions closed" hint beside the (disabled) Submit button, past the R32 cutoff. */
+.submit-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: rgba(246,243,234,0.6);
+  white-space: nowrap;
+}
+
 .btn-row {
   display: flex;
   gap: 10px;
@@ -691,7 +704,9 @@ textarea.json-box {
 .key-chip b { color: var(--gold-bright); margin-left: 4px; }
 .key-note {
   margin: 0;
-  max-width: 62ch;
+  /* Wide enough that the full legend (now incl. the cheating-aware clause) still
+     settles into two lines rather than three. */
+  max-width: 96ch;
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.45;
@@ -709,6 +724,20 @@ textarea.json-box {
 .lb-status-ok { color: var(--gold-bright); }
 .lb-status-err { color: #e89a86; }
 .lb-empty { color: rgba(246,243,234,0.6); font-size: 14px; }
+
+/* Locked group: brackets submitted after the R32 hard-close. Shown for the record
+   but never scored — a muted note + dimmed, non-interactive rows. */
+.lb-locked-note {
+  margin: 14px 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(246,243,234,0.45);
+}
+.lb-locked-list { flex: none; overflow: visible; }
+.lb-entry.lb-locked .lb-row { cursor: default; opacity: 0.6; }
+.lb-entry.lb-locked .lb-row:hover { border-color: var(--line); background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)); }
+.lb-entry.lb-locked .lb-score { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; }
 
 .lb-list {
   list-style: none; margin: 0; padding: 2px;
@@ -818,8 +847,14 @@ textarea.json-box {
 .lb-rank.silver { color: #cdd2d6; }
 .lb-rank.bronze { color: #cd915b; }
 
-.lb-name { font-weight: 700; font-size: 15.5px; min-width: 0; display: flex; align-items: center; gap: 8px; }
+/* Two-line stack: name (+ any resubmit pill) on top, submission time beneath. The
+   column keeps the muted timestamp from fighting the name's ellipsis. */
+.lb-name { font-weight: 700; font-size: 15.5px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.lb-name-top { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
 .lb-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Submission receipt line: the trusted server write time, shown so the board wears
+   its cheating-aware scoring on its sleeve. Muted + mono so it reads as metadata. */
+.lb-submitted { font-family: var(--font-mono); font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; }
 /* "Please Resubmit" pill: the bracket was corrected after this person submitted,
    so their later-round picks were cleared. A muted red-card tint flags it as
    needs-attention without shouting; flex:none keeps it whole as the name ellipsizes. */
@@ -968,6 +1003,8 @@ textarea.json-box {
 .round-chip .rc-count { font-weight: 700; }
 .round-chip .rc-slash { font-weight: 400; color: rgba(246,243,234,0.42); }
 .round-chip .rc-fire { font-size: 0.9em; color: var(--gold-bright); }
+/* Receipt glyph: this round has picks that scored on crowd-credit (submitted late). */
+.round-chip .rc-receipt { font-size: 0.9em; opacity: 0.7; }
 /* Dim rounds not yet in play; brighten the label of rounds you've scored in. */
 .round-chip.is-dim { opacity: 0.5; }
 .round-chip.has-hits .rc-label { color: rgba(246,243,234,0.7); }
@@ -1398,6 +1435,7 @@ footer.site-footer {
      pinch-zoom. Bracket rows get a gentler bump — applied to BOTH brackets (see
      the shared .bracket-region rules just below). */
   .lb-name { font-size: 20px; }
+  .lb-submitted { font-size: 13px; }
   .lb-score { font-size: 18px; }
   .lb-rank { font-size: 18px; }
   .lb-correct, .lb-champ { font-size: 15px; }

@@ -149,7 +149,17 @@ function render() {
   // otherwise a restored complete draft loads with Submit stuck disabled,
   // because on first render the input hasn't been repopulated yet.
   if (nameInput && nameInput.value !== predictorName) nameInput.value = predictorName;
-  if (submitBtn) submitBtn.disabled = done < total || !predictorName.trim();
+  // Submissions hard-close once the Round of 32 is complete (anti-cheat backstop).
+  // After that the button stays disabled no matter how complete the bracket is,
+  // and a hint explains why. (Client-clock check — UX only; the leaderboard is
+  // the real enforcement, against the trusted server timestamp.)
+  const closed = submissionsClosed();
+  if (submitBtn) {
+    submitBtn.disabled = closed || done < total || !predictorName.trim();
+    if (closed) submitBtn.textContent = "Submissions closed";
+  }
+  const hint = document.getElementById("submit-hint");
+  if (hint) hint.hidden = !closed;
 }
 
 function buildPredictionPayload() {
@@ -198,6 +208,9 @@ function initPredictorPage() {
   });
 
   document.getElementById("submit-btn").addEventListener("click", async () => {
+    // Backstop: never POST once submissions have closed, even if the button
+    // somehow fired. render() keeps it disabled + relabeled past the cutoff.
+    if (submissionsClosed()) { render(); return; }
     const payload = buildPredictionPayload();
     const submitBtn = document.getElementById("submit-btn");
 

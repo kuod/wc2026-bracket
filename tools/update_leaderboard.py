@@ -227,14 +227,18 @@ def _to_int(v):
 
 
 def _norm_event(home, away, raw_home, raw_away, completed, winner,
-                hs, as_, he, ae, decided_by, note, date, event_id, source):
+                hs, as_, he, ae, decided_by, note, date, event_id, source,
+                kickoff=None):
     return {
         "home": home, "away": away, "rawHome": raw_home, "rawAway": raw_away,
         "completed": completed, "winner": winner,
         "homeScore": hs, "awayScore": as_,
         "homeScoreExtra": he, "awayScoreExtra": ae,
         "decidedBy": decided_by, "note": note,
-        "date": date, "eventId": event_id, "source": source,
+        # `date` feeds the long-standing `completedAt` (day-granular for TheSportsDB);
+        # `kickoff` is the finer-grained kickoff time when the source provides one
+        # (TheSportsDB strTimestamp / ESPN date) — used client-side to time-gate scoring.
+        "date": date, "kickoff": kickoff, "eventId": event_id, "source": source,
     }
 
 
@@ -260,10 +264,12 @@ def normalize_sportsdb(ev, resolve):
             # Level score with no usable shootout field: cannot resolve automatically.
             note = "level score, winner undetermined"
 
+    # strTimestamp is the full UTC kickoff datetime; dateEvent is only day-granular.
     return _norm_event(home, away, ev.get("strHomeTeam"), ev.get("strAwayTeam"),
                        completed, winner, hs, as_, he, ae,
                        status or "NS", note, ev.get("dateEvent"),
-                       ev.get("idEvent"), "TheSportsDB")
+                       ev.get("idEvent"), "TheSportsDB",
+                       kickoff=ev.get("strTimestamp") or ev.get("dateEvent"))
 
 
 def normalize_espn(ev, resolve):
@@ -312,9 +318,11 @@ def normalize_espn(ev, resolve):
     else:
         decided_by = "FT"
 
+    # ESPN's `date` is already a full ISO datetime, so it doubles as the kickoff.
     return _norm_event(home, away, raw_home, raw_away, completed, winner,
                        hs, as_, h_pen, a_pen, decided_by, note,
-                       ev.get("date"), ev.get("id"), "ESPN")
+                       ev.get("date"), ev.get("id"), "ESPN",
+                       kickoff=ev.get("date"))
 
 
 # --- Main resolution over the feeder graph ----------------------------------
@@ -396,6 +404,7 @@ def build(bracket, events, prior_results=None):
                     "homeScoreExtra": ev["homeScoreExtra"], "awayScoreExtra": ev["awayScoreExtra"],
                     "decidedBy": ev["decidedBy"], "sportsDbEventId": ev["eventId"],
                     "source": ev["source"], "completedAt": ev["date"],
+                    "kickoffAt": ev["kickoff"],
                 })
 
         # Sticky winner: if this run couldn't resolve a winner but a PRIOR run

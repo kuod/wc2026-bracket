@@ -27,9 +27,24 @@ const ROUND_POINTS = { R32: 1, R16: 100, QF: 1000, SF: 10000, FINAL: 100000 };
 const R32_UPSET_MAX = 4;      // most bonus points a single bold R32 call can earn
 const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to score rarity
 
+// Cheating-aware "receipt credit". Submissions are open all tournament, so a pick
+// made AFTER its match was decided (submission timestamp past the result's known-at
+// time) can't earn full trust. Such a "late" correct pick keeps NO upset bonus and
+// only earns credit scaled by how much the crowd also backed that winner — a chalk
+// pick everyone made is harmless, a lone-wolf hindsight upset earns ≈0. See
+// matchKnownAt()/lateShare()/scorePrediction() below.
+const LATE_MIN_PICKERS  = 6;              // crowd sample needed before a share is meaningful (mirrors R32_MIN_ELIGIBLE)
+const LATE_GUARD_CREDIT = 0.5;            // credit when neither crowd is big enough to judge
+// Kickoff → "result is knowable" offsets. We don't have a true final-whistle time,
+// so we approximate from kickoff + a duration by how the match was decided, + grace.
+const DUR_REGULATION_MS = (2 * 60 + 15) * 60 * 1000;  // FT      → +2h15m
+const DUR_EXTRA_MS      = 3 * 60 * 60 * 1000;         // AET/AP  → +3h00m (also the lenient default when decided-by is unknown)
+const GRACE_MS          = 15 * 60 * 1000;             // +15m slack so a just-finished match isn't a knife-edge
+
 let actualResults = {};   // matchId -> winning team name (decided matches only)
 let resultsMeta = null;   // the WC2026_RESULTS payload (for the "updated" stamp)
-let predictions = [];
+let predictions = [];         // scored brackets (submitted before the R32 close)
+let lockedPredictions = [];   // brackets submitted after the close: shown, not scored
 let selectedPredictor = null;   // null => canvas shows live results
 
 // Escape a value for use inside a double-quoted HTML attribute. (escapeHtml in
@@ -43,6 +58,16 @@ function escapeAttr(s) {
 // instead of the templated "1 match(es)". pluralForm defaults to singular + "s".
 function plural(n, singular, pluralForm) {
   return n === 1 ? singular : (pluralForm || singular + "s");
+}
+
+// A submission timestamp as a short, human "Jun 28, 3:41 PM" (viewer's locale/zone).
+// Prefer the trusted server-side write time; fall back to the client clock. Empty
+// string when there's nothing parseable, so callers can omit the element entirely.
+function formatSubmitted(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (isNaN(d)) return "";
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 // ---- Motion: split-flap numbers + one-time bracket reveal --------------------
@@ -316,31 +341,117 @@ function r32UpsetBonus(matchId, winner) {
   return Math.round(R32_UPSET_MAX * (1 - share));
 }
 
+// When a match's result became KNOWABLE, as epoch-ms — or null if we can't tell
+// (in which case a pick is never treated as late; benefit of the doubt). We have
+// no true final-whistle time, so we approximate: kickoff + a duration keyed off how
+// the match was decided (decidedBy) + grace. Reads the full result row from
+// resultsMeta (actualResults holds only the winner name). Prefers the precise
+// kickoffAt the pipeline now writes, falling back to the older day-granular
+// completedAt so already-committed data still works.
+function matchKnownAt(matchId) {
+  const r = resultsMeta && resultsMeta.results && resultsMeta.results[matchId];
+  if (!r) return null;
+  const kickoff = r.kickoffAt || r.completedAt;
+  if (!kickoff) return null;
+  // Day-granular value (no time-of-day): we can't reason about duration, so treat
+  // the result as unknowable until the END of that UTC day — same-day submissions
+  // get the benefit of the doubt, only a strictly-later day counts as late.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(kickoff)) {
+    const day = Date.parse(kickoff);
+    return isNaN(day) ? null : day + 24 * 60 * 60 * 1000;
+  }
+  const t = Date.parse(kickoff);
+  if (isNaN(t)) return null;
+  const by = r.decidedBy;
+  // FT → regulation; AET/AP → the longer extra-time window. Anything else (a match
+  // decided via override with no/NS decidedBy) uses the longer window too, so we
+  // never falsely flag a match that may have run long.
+  const offset = by === "FT" ? DUR_REGULATION_MS : DUR_EXTRA_MS;
+  return t + offset + GRACE_MS;
+}
+
+// Receipt-credit share for a LATE correct pick: how much of the crowd also backed
+// this winner, in [0,1]. Prefer the "on-time crowd" (brackets submitted before the
+// result was knowable) — they're the untainted signal, and late brackets can't
+// validate each other. Fall back to the whole-pool consensus (leave-one-out, so a
+// picker can't inflate their own share) when the on-time crowd is too small, and to
+// a neutral guard credit when neither crowd is big enough to mean anything. An
+// even-split match lands near 0.5 naturally; a lone-wolf hindsight pick lands ≈0.
+function lateShare(matchId, winner, knownAt) {
+  // 1) On-time crowd: picks on this match submitted before it was knowable. The
+  //    late scorer is excluded automatically (their own timestamp is past knownAt).
+  let onTimeN = 0, onTimeWinner = 0;
+  for (const p of predictions) {
+    const g = p.picks[matchId];
+    if (!g) continue;
+    const ts = Date.parse(p.timestamp || p.submittedAt);
+    if (isNaN(ts) || ts >= knownAt) continue;
+    onTimeN++;
+    if (g === winner) onTimeWinner++;
+  }
+  if (onTimeN >= LATE_MIN_PICKERS) return onTimeWinner / onTimeN;
+
+  // 2) Whole-pool consensus, leave-one-out (remove the scorer, who is a correct picker).
+  const dist = tally(matchId);
+  const totalPickers = dist.reduce((s, d) => s + d.count, 0);
+  const others = totalPickers - 1;
+  if (others >= LATE_MIN_PICKERS) {
+    const hit = dist.find(d => d.team === winner);
+    return ((hit ? hit.count : 0) - 1) / others;
+  }
+
+  // 3) Too few brackets either way — neither full trust nor zero.
+  return LATE_GUARD_CREDIT;
+}
+
+// Digit-safety of receipt credit (must not carry across rounds — see ROUND_POINTS):
+// per round we sum late shares (each ≤ 1) and fold them in as whole "units" via
+// floor(sum + 0.5), so lateUnits ≤ lateCount. Thus a round's field usage is
+// onTimeCorrect + lateUnits ≤ matchesInRound: <10 for R16/QF/SF/FINAL (one digit
+// each), and for R32 the ≤80<100 on-time worst case only SHRINKS when a pick goes
+// late (its up-to-4 upset bonus is stripped, contribution capped at ~1). Every
+// per-round contribution stays an integer multiple of ROUND_POINTS[round].
 function scorePrediction(pred) {
   let score = 0;
   const breakdown = [];
   const roundSubtotals = {};
+  const subTs = Date.parse(pred.timestamp || pred.submittedAt);
   for (const round of ROUNDS) {
     let roundCorrect = 0, roundDecided = 0, roundBonus = 0;
+    let roundLateShares = 0, roundLateCount = 0;
     for (const match of round.matches) {
       const guess = pred.picks[match.id];
       const actual = actualResults[match.id];
       const state = pickState(match.id, guess);
       if (actual) roundDecided++;
-      let bonus = 0;
+      let bonus = 0, late = false, share = 0;
       if (state === "correct") {
-        score += ROUND_POINTS[round.key];
-        roundCorrect++;
-        // R32 is the only round that carries an upset bonus (its field has room).
-        if (round.key === "R32") {
-          bonus = r32UpsetBonus(match.id, actual);
-          score += bonus;          // R32 weight is 1, so this lands in the ones/tens field
-          roundBonus += bonus;
+        roundCorrect++;   // it IS a correct call; only its scoring changes when late
+        const knownAt = matchKnownAt(match.id);
+        late = knownAt != null && !isNaN(subTs) && subTs > knownAt;
+        if (late) {
+          // Late: no base points inline, no upset bonus — only crowd-share credit,
+          // accumulated and folded in per round below to keep the digit encoding.
+          share = lateShare(match.id, actual, knownAt);
+          roundLateShares += share;
+          roundLateCount++;
+        } else {
+          score += ROUND_POINTS[round.key];
+          // R32 is the only round that carries an upset bonus (its field has room).
+          if (round.key === "R32") {
+            bonus = r32UpsetBonus(match.id, actual);
+            score += bonus;          // R32 weight is 1, so this lands in the ones/tens field
+            roundBonus += bonus;
+          }
         }
       }
-      breakdown.push({ matchId: match.id, round: round.key, guess, actual, state, bonus });
+      breakdown.push({ matchId: match.id, round: round.key, guess, actual, state, bonus, late, share });
     }
-    roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length, bonus: roundBonus };
+    // Fold this round's receipt credit in as whole units × the round weight.
+    const lateUnits = Math.floor(roundLateShares + 0.5);
+    score += lateUnits * ROUND_POINTS[round.key];
+    roundSubtotals[round.key] = { correct: roundCorrect, decided: roundDecided, total: round.matches.length,
+                                  bonus: roundBonus, lateCount: roundLateCount, lateUnits };
   }
   return { score, breakdown, roundSubtotals };
 }
@@ -489,6 +600,10 @@ function canvasCard(roundKey, match, pred, consensus) {
     // 🔥 flags the picks that actually beat the pool.
     const pts = opts.bonus
       ? `<span class="pick-points" title="Upset bonus — few brackets backed this winner">🔥+${opts.bonus}</span>` : "";
+    // Receipt chip: a correct pick submitted AFTER its result was known. A late pick
+    // never carries an upset bonus, so 🧾 slots into the same place 🔥 would have.
+    const receipt = opts.receipt
+      ? `<span class="pick-receipt" title="Late pick — submitted after the result was known, so it earns crowd-credit (${Math.round((opts.share || 0) * 100)}% of the pool), no upset bonus">🧾</span>` : "";
     // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
     const share = opts.favored && opts.share != null
       ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
@@ -502,7 +617,7 @@ function canvasCard(roundKey, match, pred, consensus) {
         }</span>` : "";
     return `<div class="team-row${cls}" title="${escapeAttr(team)}${titleSuffix}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
-        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${share}${score}
+        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${receipt}${share}${score}
       </div>`;
   }
 
@@ -545,6 +660,9 @@ function canvasCard(roundKey, match, pred, consensus) {
   // ever non-zero on a correct R32 pick). Used to badge the pick with 🔥+N.
   const bd = pred.breakdown && pred.breakdown.find(b => b.matchId === match.id);
   const bonus = state === "correct" && bd ? (bd.bonus || 0) : 0;
+  // Receipt state for this pick (correct but submitted late → crowd-credit only).
+  const receipt = state === "correct" && bd ? !!bd.late : false;
+  const receiptShare = bd ? (bd.share || 0) : 0;
   const [teamA, teamB] = predMatchTeams(pred, roundKey, match);
 
   const personRow = team => {
@@ -554,7 +672,7 @@ function canvasCard(roundKey, match, pred, consensus) {
       // (not dimmed like the old subtractive view) before a result is in.
       const opts = state === "pending"
         ? { chosen: true }
-        : { state, bonus };
+        : { state, bonus, receipt, share: receiptShare };
       return row(team, opts);
     }
     return row(team, {});
@@ -606,13 +724,17 @@ function renderBracketCanvas() {
 function roundStrip(subs) {
   if (!subs) return "";
   const chips = ROUNDS.map(r => {
-    const s = subs[r.key] || { correct: 0, total: r.matches.length, decided: 0, bonus: 0 };
+    const s = subs[r.key] || { correct: 0, total: r.matches.length, decided: 0, bonus: 0, lateCount: 0 };
     const live = s.decided > 0;
     const fire = r.key === "R32" && s.bonus > 0
       ? `<span class="rc-fire" title="Upset bonus earned">🔥+${s.bonus}</span>` : "";
+    // Receipt glyph: some of this round's correct picks were submitted late and
+    // scored on crowd-credit. Muted so it flags the fact without shouting.
+    const receipt = s.lateCount > 0
+      ? `<span class="rc-receipt" title="${s.lateCount} ${plural(s.lateCount, "pick")} scored on receipt — submitted after the result was known">🧾</span>` : "";
     return `<span class="round-chip rc-${r.key.toLowerCase()}${live ? "" : " is-dim"}${s.correct ? " has-hits" : ""}">` +
              `<span class="rc-label">${roundShortLabel(r.key)}</span>` +
-             `<span class="rc-count">${s.correct}<span class="rc-slash">/${s.total}</span></span>${fire}` +
+             `<span class="rc-count">${s.correct}<span class="rc-slash">/${s.total}</span></span>${fire}${receipt}` +
            `</span>`;
   }).join("");
   return `<span class="round-strip">${chips}</span>`;
@@ -676,8 +798,13 @@ function renderLeaderboard() {
   if (!root) return;
   const board = computeLeaderboard();
 
+  // Brackets submitted after the R32 hard-close: shown as a locked, unscored tail
+  // group so a late submitter sees WHY they're not on the board, rather than
+  // silently vanishing. Built once here and appended after the ranked list.
+  const lockedHtml = renderLockedGroup();
+
   if (board.length === 0) {
-    root.innerHTML = `<p class="lb-empty">No brackets loaded yet.</p>`;
+    root.innerHTML = lockedHtml || `<p class="lb-empty">No brackets loaded yet.</p>`;
     return;
   }
 
@@ -692,11 +819,17 @@ function renderLeaderboard() {
     const resubmit = p.needsResubmit
       ? `<span class="lb-resubmit" title="The bracket was corrected — your later-round picks were cleared. Please resubmit.">Please Resubmit</span>`
       : "";
+    // Submission time (server clock preferred) shown under the name — the same
+    // trusted timestamp receipt-scoring uses, so the board explains its own fairness.
+    const submitted = formatSubmitted(p.timestamp || p.submittedAt);
+    const submittedEl = submitted
+      ? `<span class="lb-submitted" title="Bracket submitted (server time) — scoring is cheating-aware">🧾 ${escapeHtml(submitted)}</span>`
+      : "";
     return `
       <li class="lb-entry${active}${medal ? " medal-" + medal : ""}" data-name="${escapeAttr(p.predictor)}">
         <button type="button" class="lb-row" aria-pressed="${active ? "true" : "false"}" aria-label="${escapeAttr(`Show ${p.predictor}'s bracket`)}">
           <span class="lb-rank ${medal}" data-flip="rank:${escapeAttr(p.predictor)}">${p.rank}</span>
-          <span class="lb-name"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>
+          <span class="lb-name"><span class="lb-name-top"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>${submittedEl}</span>
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
           <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score.toLocaleString()}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
@@ -706,7 +839,7 @@ function renderLeaderboard() {
     `;
   }).join("");
 
-  root.innerHTML = `<ol class="lb-list">${rows}</ol>`;
+  root.innerHTML = `<ol class="lb-list">${rows}</ol>${lockedHtml}`;
 
   root.querySelectorAll(".lb-entry").forEach(entry => {
     entry.querySelector(".lb-row").addEventListener("click", () => {
@@ -719,6 +852,36 @@ function renderLeaderboard() {
   });
 
   applyFlips(root);
+}
+
+// The locked, unscored tail: brackets submitted after the R32 hard-close. Purely
+// informational (no rank, no score, not clickable) — they're excluded from every
+// scoring/consensus/stats path upstream. Returns "" when there are none.
+function renderLockedGroup() {
+  if (!lockedPredictions.length) return "";
+  const items = lockedPredictions
+    .slice()
+    .sort((a, b) => a.predictor.localeCompare(b.predictor))
+    .map(p => {
+      const submitted = formatSubmitted(p.timestamp || p.submittedAt);
+      const submittedEl = submitted
+        ? `<span class="lb-submitted">🔒 ${escapeHtml(submitted)}</span>` : "";
+      // Locked rows skip computeLeaderboard, so derive champion straight from picks.
+      const champion = p.picks && p.picks["FINAL"] ? p.picks["FINAL"] : null;
+      return `
+        <li class="lb-entry lb-locked">
+          <div class="lb-row" aria-disabled="true">
+            <span class="lb-rank">🔒</span>
+            <span class="lb-name"><span class="lb-name-top"><span class="lb-name-text">${escapeHtml(p.predictor)}</span></span>${submittedEl}</span>
+            <span class="lb-champ">${champion ? teamCell(champion) : ""}</span>
+            <span class="lb-correct muted">—</span>
+            <span class="lb-score muted">too late 🔒</span>
+            <span class="lb-caret" aria-hidden="true"></span>
+          </div>
+        </li>`;
+    }).join("");
+  return `<p class="lb-locked-note">🔒 Rolled in after the Round of 32 wrapped — here for the record, not for points.</p>` +
+         `<ol class="lb-list lb-locked-list">${items}</ol>`;
 }
 
 // ---- Pool stats (6 cards) ---------------------------------------------------
@@ -941,10 +1104,16 @@ function renderPoolStats() {
   // Each continent's centroid on the world-mini.svg (dot-matrix) viewBox, as
   // map %. Emitted by tools/gen_dotmap.py (mean of each continent's dots in the
   // Winkel-Tripel projection) — regenerate both together, never eyeball these.
+  // EXCEPTION: Europe is a deliberate manual override, NOT the generated centroid.
+  // The dot-mean sits ~{left:65,top:15}, dragged east/north by Russia's landmass,
+  // so the label floated over Russia. We anchor it instead near the Caucasus
+  // (~42.5°N, 44°E → left 58%, top 29% via the same projection; see the printout
+  // from tools/gen_dotmap.py / the one-off probe), nudged up into the European
+  // band so it reads as Europe without overlapping Russia.
   const CONTINENT_POS = {
     "North America": { left: 17, top: 19 },
     "South America": { left: 23, top: 70 },
-    "Europe":        { left: 65, top: 15 },
+    "Europe":        { left: 58, top: 22 },
     "Africa":        { left: 50, top: 55 },
     "Asia":          { left: 72, top: 36 },
     "Oceania":       { left: 90, top: 79 }
@@ -1121,8 +1290,15 @@ async function initScorePage() {
   if (typeof SCRIPT_URL === "string" && SCRIPT_URL) {
     renderStatus("Loading brackets…");
     try {
-      predictions = await fetchPredictionsFromSheet(SCRIPT_URL);
-      renderStatus(`Loaded ${predictions.length} ${plural(predictions.length, "bracket")}.`, "ok");
+      const all = await fetchPredictionsFromSheet(SCRIPT_URL);
+      // Split off brackets submitted after the R32 hard-close: they're shown as a
+      // locked, unscored group and must NOT enter `predictions`, so they never
+      // contribute to scoring, ranking, consensus, or pool stats.
+      predictions = all.filter(p => !submittedAfterClose(p.timestamp || p.submittedAt));
+      lockedPredictions = all.filter(p => submittedAfterClose(p.timestamp || p.submittedAt));
+      const lockNote = lockedPredictions.length
+        ? ` (${lockedPredictions.length} locked — submitted after the R32 close)` : "";
+      renderStatus(`Loaded ${predictions.length} ${plural(predictions.length, "bracket")}${lockNote}.`, "ok");
       refresh();
     } catch (e) {
       renderStatus(`Couldn't load brackets right now (${e.message}). Try reloading in a moment.`, "err");

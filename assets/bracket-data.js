@@ -175,6 +175,34 @@ const ROUNDS = [
   { key: "FINAL", label: "Final",         matches: FINAL }
 ];
 
+// Submissions hard-close once the Round of 32 is complete — the anti-cheat
+// backstop. The last R32 match (Colombia v Ghana) kicks off 9:30 PM EDT Fri
+// Jul 3, 2026; allowing for extra time + penalties it could finish ~12:45 AM
+// EDT Jul 4, so we lock at ~1:30 AM EDT Jul 4 (a cushion past a shootout) so
+// nobody is cut off mid-match. The predictor uses this to disable the Submit
+// button (client clock — UX only, spoofable); the leaderboard enforces it for
+// real against the trusted server timestamp (a submission past this is shown
+// but not scored). Shared here so both pages agree on the one moment.
+const SUBMISSIONS_CLOSE_AT = "2026-07-04T05:30:00Z";
+// Parsed epoch-ms (NaN-safe); helpers below read this.
+const SUBMISSIONS_CLOSE_MS = Date.parse(SUBMISSIONS_CLOSE_AT);
+
+// Are submissions closed as of `whenMs` (default: now)? Used by the predictor to
+// gate the Submit button. NOTE: this trusts the caller's clock, so it's UX only;
+// scoring-time enforcement uses the trusted server timestamp per bracket.
+function submissionsClosed(whenMs) {
+  const t = whenMs == null ? Date.now() : whenMs;
+  return !isNaN(SUBMISSIONS_CLOSE_MS) && t >= SUBMISSIONS_CLOSE_MS;
+}
+
+// Was a bracket submitted after the hard close? Feeds the leaderboard's "locked,
+// unscored" partition. Trusts the passed (server) timestamp; an unparseable one
+// is treated as on-time (benefit of the doubt), matching the scorer's stance.
+function submittedAfterClose(ts) {
+  const t = Date.parse(ts);
+  return !isNaN(t) && !isNaN(SUBMISSIONS_CLOSE_MS) && t >= SUBMISSIONS_CLOSE_MS;
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
 }
