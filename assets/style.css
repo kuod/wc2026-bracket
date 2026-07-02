@@ -801,18 +801,28 @@ textarea.json-box {
 .lb-row {
   position: relative;
   display: grid;
-  /* Every trailing column (time · champ · correct · score) is FIXED-WIDTH so each is a
-     TRUE column: a fixed track is identical across all rows in a render, so the flag's
-     left edge is rock-steady down the list. (Content-sized `auto` tracks size per-row —
-     "10/10" vs "9/10" gave each row a different width and drifted the flag ~8px.) The
-     name is the sole flexible track (1fr) and absorbs ALL the slack, so the four
+  /* The name is the sole flexible track (1fr) and absorbs ALL the slack, so the four
      metadata columns pack into a tight cluster on the far right and the name gets max
-     room to read. Widths are measured to their content max (time "🕒 Jul 01, 01:52 AM"
-     ≈126, flag+code ≈57, "31/31" ≈36) so the 12px grid `gap` is the ONLY spacing
-     between them — even gutters, no pooled slack. Score reserves the endgame
-     "19,294,989,169pts" (~143px at 15px mono) and is right-aligned so its digits hold a
-     steady right edge as totals climb; caret 22px. */
-  grid-template-columns: 40px minmax(0, 1fr) 128px 58px 40px 150px 22px;
+     room to read. The TIME and FLAG tracks are both `auto` (content-sized), not fixed px,
+     so each hugs its content and the 12px grid `gap` is the ONLY spacing between them —
+     EVEN gutters on both sides of the flag (time→flag matches flag→correct). A fixed px
+     track wider than its content leaves trailing slack (justify-self:start pins content
+     left), which pads one gutter unevenly; `auto` avoids that. NB `auto` sizes per-row
+     (each row is its own grid — auto does NOT share a width down the list); it reads as a
+     TRUE column only because the CONTENT is effectively constant-width every row: the
+     stamp is a fixed-format "Jun 20, 02:30 PM" tabular-nums string, and the flag is a 27px
+     img + a mono 3-letter code (so GHA/SUI/III all measure identical — no proportional
+     drift). And the flag's LEFT edge stays rock-steady regardless of the time content
+     (an empty stamp, or the locked-row 🔒 prefix): the 1fr name track absorbs whatever the
+     time track doesn't use, so the time width cancels out of the flag's position entirely.
+     "31/31" (correct)
+     stays a small fixed 40px track, left-aligned so its per-row digit slack falls into
+     the far-away score gutter, invisibly. `auto` also self-sizes to the real glyph
+     widths — robust to the 🕒 emoji, which renders wider than a hardcoded guess on many
+     devices and would otherwise overflow the track into the flag. Score reserves the
+     endgame "19,294,989,169pts" (~143px at 15px mono) and is right-aligned so its digits
+     hold a steady right edge as totals climb; caret 22px. */
+  grid-template-columns: 40px minmax(0, 1fr) auto auto 40px 150px 22px;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -904,9 +914,13 @@ textarea.json-box {
    single-line and trim. The trusted server write time (the one scoring uses), muted
    + mono so it reads as metadata, with the 🕒 keeping the cheating-aware theme.
    Left-aligned with tabular figures so the fixed-width "Jun 20, 02:30 PM" stamps
-   stack into a clean, readable column down the list. No right margin: the trailing
-   columns are content-sized (see .lb-row) so the grid `gap` alone spaces them evenly. */
-.lb-submitted { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: start; text-align: left; }
+   stack into a clean, readable column down the list. The trailing tracks are content-
+   sized (see .lb-row), so the 12px grid `gap` + this 5px margin give a 17px time→flag
+   gutter — a hair MORE than the flag→correct 16px (.lb-champ below), because the stamp is
+   small, light, muted text and reads tighter against the solid flag block than the denser
+   "31/31" does, so it needs the extra pixel to feel evenly spaced. Done via margin (not a
+   bigger grid `gap`, which would loosen all seven gutters). */
+.lb-submitted { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: start; text-align: left; margin-right: 5px; }
 /* "Please Resubmit" pill: the bracket was corrected after this person submitted,
    so their later-round picks were cleared. A muted red-card tint flags it as
    needs-attention without shouting; flex:none keeps it whole as the name ellipsizes. */
@@ -927,7 +941,9 @@ textarea.json-box {
 }
 /* The same nudge inline in the per-person hero stat line. */
 .ch-resubmit { color: var(--red-card); font-weight: 700; }
-.lb-champ { display: flex; align-items: center; justify-self: start; }
+/* 4px right margin → 16px flag→correct gutter (12px grid gap + 4px), matching the
+   time→flag breather set on .lb-submitted, so the flag sits evenly spaced on both sides. */
+.lb-champ { display: flex; align-items: center; justify-self: start; margin-right: 4px; }
 /* Correct-count LEFT-aligned: its left edge (the one adjacent to the flag) then holds
    steady row-to-row, so the flag→correct gutter is exactly the grid `gap` on every row
    — matching time→flag — instead of drifting with the count's digit width. The small
@@ -1569,13 +1585,16 @@ footer.site-footer {
   .bracket-region .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
   .bracket-region .sym-R32 .team-row .flag { width: 20px; height: 14px; }
 
-  /* Keep in lockstep with the base .lb-row grid: fixed trailing tracks so the flag is
+  /* Keep in lockstep with the base .lb-row grid: the trailing tracks so the flag is
      a steady column and the name (1fr) absorbs slack, pushing the metadata far right.
-     Slightly wider time/champ/correct here to fit the portrait font bumps (.lb-submitted
-     13px, .lb-correct/.lb-champ 15px); score still reserves the endgame total, caret 22px.
-     Restating it (rather than inheriting) keeps the 7 cells aligned on the pinned-1024
-     phone layout instead of bleeding / wrapping the caret. */
-  .lb-row { grid-template-columns: 40px minmax(0, 1fr) 138px 64px 48px 156px 22px; }
+     Time and flag are both `auto` (content-sized) here too — constant-width content keeps
+     each uniform per-row (even gutters on both sides of the flag) while self-sizing to
+     the bigger portrait 🕒 (no fixed px to overflow
+     or to leave uneven slack). Only correct is widened (48px) for the portrait font bump
+     (.lb-correct 15px); score still reserves the endgame total, caret 22px. Restating it (rather than
+     inheriting) keeps the 7 cells aligned on the pinned-1024 phone layout instead of
+     bleeding / wrapping the caret. */
+  .lb-row { grid-template-columns: 40px minmax(0, 1fr) auto auto 48px 156px 22px; }
 
   /* Scoreboard hero on phones: the 1024px layout is scaled ~0.38x to the screen,
      so size the readout up to stay legible and keep the banner proportionate. */
