@@ -75,7 +75,13 @@ function formatSubmitted(ts) {
   if (!ts) return "";
   const d = new Date(ts);
   if (isNaN(d)) return "";
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  // Fixed-width, locale-stable "Jun 20, 02:30 PM": 3-char month + 2-digit day and
+  // 2-digit 12-hour clock, so every row is the same length and the mono column
+  // lines up cleanly (a variable "Jun 1, 3:05 AM" wouldn't align). Forced to en-US
+  // so the month-day-time order is consistent regardless of the viewer's locale.
+  return d.toLocaleString("en-US", {
+    month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: true
+  });
 }
 
 // ---- Motion: split-flap numbers + one-time bracket reveal --------------------
