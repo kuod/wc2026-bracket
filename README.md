@@ -7,7 +7,7 @@ A static, no-server bracket predictor for the FIFA World Cup 2026 knockout stage
 ## How it works
 
 - **`index.html`** — the prediction form. Pick a winner in every Round of 32 match and the Round of 16, Quarterfinals, Semifinals, and Final fill themselves in as you go, just like a real bracket. **Submit** sends the picks straight to the pool's Google Sheet.
-- **`score.html`** — the leaderboard. Pulls everyone's brackets from the Sheet, scores them against real results, and ranks the pool. Click any name to see their full bracket with ✓ / ✗ / pending marks; scroll down for pool-wide stats.
+- **`score.html`** — the leaderboard. Renders everyone's brackets (baked into a committed snapshot for a fast first paint, then quietly refreshed live from the Sheet), scores them against real results, and ranks the pool. Click any name to see their full bracket with ✓ / ✗ / pending marks; scroll down for pool-wide stats.
 - **Results are automatic.** `tools/update_leaderboard.py` fetches real knockout results from [TheSportsDB](https://www.thesportsdb.com/) and writes them into `assets/results-data.js`. A GitHub Action runs it on a schedule during the tournament, so the live page always shows fresh scores with a "Results updated …" stamp. The browser never calls the results API itself — everyone sees the same leaderboard.
 
 No database or build step: it's plain HTML/CSS/JS, which is all GitHub Pages needs.
@@ -23,13 +23,15 @@ assets/
   score-app.js                  leaderboard + scoring logic
   results-data.js               GENERATED results (committed by the updater)
   results-overrides.js          hand corrections (penalty shootouts, etc.)
+  predictions-data.js           GENERATED predictions snapshot (committed by the updater)
   style.css                     visual system
 backend/
   apps-script.js                Google Apps Script — deploy to script.google.com
 tools/
   update_leaderboard.py         fetches results from TheSportsDB → results-data.js
+  update_predictions.py         snapshots the Sheet → predictions-data.js
 .github/workflows/
-  update-results.yml            runs the updater on a schedule + on demand
+  update-results.yml            runs both updaters on a schedule + on demand
 ```
 
 ## One-time setup (you, before sharing the link)

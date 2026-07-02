@@ -46,22 +46,38 @@ jobs:
       - name: Regenerate results-data.js
         run: python3 tools/update_leaderboard.py
 
+      # Snapshot everyone's predictions into predictions-data.js so the leaderboard
+      # paints the real board on first frame (the browser then does a best-effort
+      # live refresh). Predictions are NON-CRITICAL: the script already exits 0 and
+      # leaves the last-good file on any fetch failure, and continue-on-error is the
+      # belt-and-suspenders so even an unexpected crash here can never abort the
+      # results + version commit below (results isolation is the invariant).
+      - name: Snapshot predictions-data.js
+        continue-on-error: true
+        run: python3 tools/update_predictions.py
+
       # Refresh version.json's resultsGeneratedAt so open leaderboards hot-swap
       # the new results. (siteVersion is unchanged unless code changed, so this
       # won't trigger a page reload — only a smooth in-place results update.)
       - name: Stamp version.json
         run: python3 tools/stamp_version.py
 
-      - name: Commit if results changed
+      - name: Commit if results or predictions changed
         run: |
-          if git diff --quiet -- assets/results-data.js assets/version.json; then
-            echo "No results change; nothing to commit."
+          # Guard over EVERY file the two generators or the stamper can touch:
+          # results-data.js + predictions-data.js (data), version.json (stamp
+          # output), and index.html/score.html (stamp rewrites their ?v= if code
+          # ever changed). Staging score.html here is what keeps a data-only run
+          # from leaving it dirty and un-added, which would break the rebase below.
+          FILES="assets/results-data.js assets/predictions-data.js assets/version.json score.html index.html"
+          if git diff --quiet -- $FILES; then
+            echo "No results/predictions change; nothing to commit."
             exit 0
           fi
           git config user.name "wc2026-results-bot"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add assets/results-data.js assets/version.json
-          git commit -m "Auto-update leaderboard results"
+          git add $FILES
+          git commit -m "Auto-update results + predictions"
           # Another push may have landed since checkout; rebase before pushing.
           git pull --rebase origin "${GITHUB_REF_NAME}"
           git push

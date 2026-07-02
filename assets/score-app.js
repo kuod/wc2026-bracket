@@ -1,11 +1,15 @@
 // ============================================================
 // 2026 World Cup Knockout Predictor — leaderboard & scoring
 // ============================================================
-// This page is a PURE STATIC RENDERER. Results are not fetched here at view
-// time: tools/update_leaderboard.py bakes them into assets/results-data.js
-// (run on a schedule by a GitHub Action), and assets/results-overrides.js holds
-// any hand corrections. The browser just reads those two globals, fetches
-// everyone's predictions from the Google Sheet once, scores them, and renders.
+// This page renders from committed snapshots first, so nothing gates the first
+// paint on a live API. Results: tools/update_leaderboard.py bakes them into
+// assets/results-data.js (run on a schedule by a GitHub Action), with
+// assets/results-overrides.js for hand corrections. Predictions: a sibling cron
+// (tools/update_predictions.py) snapshots the Google Sheet into
+// assets/predictions-data.js; the browser hydrates from it, then does a
+// best-effort BACKGROUND refresh against the live Sheet — so a flaky GET folds
+// in late brackets when it works and is invisible when it doesn't. The page
+// reads those globals, scores, and renders.
 //
 // The leaderboard is built around ONE persistent symmetric bracket (the same
 // renderSymmetricBracket used by the predictor). By default it shows reality;
@@ -334,14 +338,14 @@ function prunePredictionPicks(picks) {
   return removed;
 }
 
-async function fetchPredictionsFromSheet(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
-
+// Turn a raw `{predictions:[…]}` payload (from EITHER the static snapshot in
+// predictions-data.js or the live Sheet GET — they share doGet()'s row shape)
+// into the cleaned, de-duped, pruned array the leaderboard scores. Pure: no
+// fetch, no globals mutated — so the static and live paths run byte-identical
+// logic and can't drift.
+function normalizePredictions(data) {
   const MATCH_IDS = ROUNDS.flatMap(r => r.matches.map(m => m.id));
-  const rows = (data.predictions || []).map(row => ({
+  const rows = ((data && data.predictions) || []).map(row => ({
     predictor: row.predictor || "Unknown",
     submittedAt: row.submittedAt || "",
     timestamp: row.timestamp || "",
@@ -372,6 +376,14 @@ async function fetchPredictionsFromSheet(url) {
     r.needsResubmit = prunePredictionPicks(r.picks);
   }
   return cleaned;
+}
+
+async function fetchPredictionsFromSheet(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return normalizePredictions(data);
 }
 
 // ---- Scoring ----------------------------------------------------------------
@@ -1438,33 +1450,76 @@ function applyFreshResults(ts) {
 async function initScorePage() {
   loadResults();
   renderUpdatedStamp();
+
+  const refresh = () => { renderBracketCanvas(); renderLeaderboard(); renderPoolStats(); renderUpdatedStamp(); };
+
+  // Split off brackets submitted after the R32 hard-close: they're shown as a
+  // locked, unscored group and must NOT enter `predictions`, so they never
+  // contribute to scoring, ranking, consensus, or pool stats.
+  const applyPredictions = (all) => {
+    predictions = all.filter(p => !submittedAfterClose(p.timestamp || p.submittedAt));
+    lockedPredictions = all.filter(p => submittedAfterClose(p.timestamp || p.submittedAt));
+  };
+  const loadedStatus = () => {
+    const lockNote = lockedPredictions.length
+      ? ` (${lockedPredictions.length} locked — submitted after the R32 close)` : "";
+    return `Loaded ${predictions.length} ${plural(predictions.length, "bracket")}${lockNote}.`;
+  };
+
+  // Predictions load in TWO stages so the flaky Sheet GET can never gate or blank
+  // the board: (1) hydrate synchronously from the committed snapshot baked into
+  // predictions-data.js and paint the REAL board on first frame; (2) fire a
+  // best-effort background refresh against the live Sheet to fold in anything
+  // submitted since the last snapshot. If the snapshot is absent (local dev, or
+  // before the first cron run) we fall back to the original await-the-live-fetch
+  // so nothing breaks.
+  const snapshot = (typeof window !== "undefined" && window.WC2026_PREDICTIONS) || null;
+  const haveSnapshot = !!(snapshot && Array.isArray(snapshot.predictions));
+
+  if (haveSnapshot) {
+    applyPredictions(normalizePredictions(snapshot));
+    renderStatus(loadedStatus(), "ok");
+  } else if (typeof SCRIPT_URL === "string" && SCRIPT_URL) {
+    renderStatus("Loading brackets…");
+  } else {
+    renderStatus("No Sheet URL configured — set SCRIPT_URL in assets/config.js.", "err");
+  }
+
+  // First paint: the real board when we have the snapshot, else the empty shell
+  // (exactly as before) while the live fetch runs.
   renderBracketCanvas();
   renderLeaderboard();
   renderPoolStats();
 
-  const refresh = () => { renderBracketCanvas(); renderLeaderboard(); renderPoolStats(); renderUpdatedStamp(); };
-
-  // Everyone's predictions are auto-loaded from the Google Sheet — the only
-  // data path. If it fails, we surface the error and the bracket still renders
-  // live results; a later reload retries.
+  // Live Sheet fetch: a NON-BLOCKING background refresh once the snapshot is up
+  // (failures stay invisible — the snapshot is already on screen), or the sole
+  // data path when there was no snapshot to hydrate from.
   if (typeof SCRIPT_URL === "string" && SCRIPT_URL) {
-    renderStatus("Loading brackets…");
-    try {
-      const all = await fetchPredictionsFromSheet(SCRIPT_URL);
-      // Split off brackets submitted after the R32 hard-close: they're shown as a
-      // locked, unscored group and must NOT enter `predictions`, so they never
-      // contribute to scoring, ranking, consensus, or pool stats.
-      predictions = all.filter(p => !submittedAfterClose(p.timestamp || p.submittedAt));
-      lockedPredictions = all.filter(p => submittedAfterClose(p.timestamp || p.submittedAt));
-      const lockNote = lockedPredictions.length
-        ? ` (${lockedPredictions.length} locked — submitted after the R32 close)` : "";
-      renderStatus(`Loaded ${predictions.length} ${plural(predictions.length, "bracket")}${lockNote}.`, "ok");
-      refresh();
-    } catch (e) {
-      renderStatus(`Couldn't load brackets right now (${e.message}). Try reloading in a moment.`, "err");
+    if (haveSnapshot) {
+      fetchPredictionsFromSheet(SCRIPT_URL).then(all => {
+        // Don't let a suspicious empty/broken GET wipe a good snapshot: if we're
+        // showing brackets and the live call yields none, keep what's on screen.
+        // (A genuine full-Sheet wipe surfaces on the next load's fresh snapshot.)
+        if (!all.length && predictions.length) return;
+        applyPredictions(all);
+        // The selected person may have vanished (renamed, removed, or now in the
+        // locked tail). Clear the selection so the canvas doesn't silently revert
+        // to live results while the ranked list shows no active row.
+        if (selectedPredictor && !predictions.some(p => p.predictor === selectedPredictor)) {
+          selectedPredictor = null;
+        }
+        renderStatus(loadedStatus(), "ok");
+        refresh();
+      }).catch(() => { /* snapshot already shown — a flaky live call is a no-op */ });
+    } else {
+      try {
+        applyPredictions(await fetchPredictionsFromSheet(SCRIPT_URL));
+        renderStatus(loadedStatus(), "ok");
+        refresh();
+      } catch (e) {
+        renderStatus(`Couldn't load brackets right now (${e.message}). Try reloading in a moment.`, "err");
+      }
     }
-  } else {
-    renderStatus("No Sheet URL configured — set SCRIPT_URL in assets/config.js.", "err");
   }
 
   // Watch for fresh results (hot-swap, no reload) and code pushes (reload once,

@@ -35,9 +35,12 @@ VERSION_FILE = ASSETS / "version.json"
 RESULTS_FILE = ASSETS / "results-data.js"
 HTML_FILES = [REPO_ROOT / "index.html", REPO_ROOT / "score.html"]
 
-# Source files whose content defines siteVersion. results-data.js and
-# version.json are deliberately EXCLUDED: results changes ride the separate
-# resultsGeneratedAt signal, and version.json is this script's own output.
+# Source files whose content defines siteVersion. The generated data files
+# (results-data.js, predictions-data.js) and version.json are deliberately
+# EXCLUDED: results changes ride the separate resultsGeneratedAt signal,
+# predictions refresh via the leaderboard's background fetch, and version.json
+# is this script's own output. So a cron that only regenerates data never bumps
+# siteVersion (which would force a needless page reload).
 SOURCE_FILES = sorted([
     REPO_ROOT / "index.html",
     REPO_ROOT / "score.html",
@@ -58,9 +61,13 @@ VBUST_RE = re.compile(r"\?v=[0-9a-f]+")
 # Group 1 = attr+path (no query), group 2 = the bare path for the skip check.
 ASSET_REF_RE = re.compile(r'((?:src|href)="(assets/[^"?]+))(?:\?v=[^"]*)?"')
 
-# results-data.js keeps its plain (unversioned) tag: the page paints with the
-# cached copy immediately, then version-check.js hot-swaps a fresh one.
-NEVER_VERSION = {"assets/results-data.js"}
+# The generated data files keep their plain (unversioned) tags so the page
+# paints from the cached copy immediately: results-data.js then hot-swaps via
+# version-check.js, and predictions-data.js is freshened by score-app.js's
+# background live fetch. Versioning either would be churn (their bytes change
+# every cron) and, worse, would rewrite score.html on a data-only run — leaving
+# it dirty and un-added, which can break the commit step's `git pull --rebase`.
+NEVER_VERSION = {"assets/results-data.js", "assets/predictions-data.js"}
 
 
 def compute_site_version():
