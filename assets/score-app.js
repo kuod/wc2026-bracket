@@ -489,8 +489,6 @@ function canvasCard(roundKey, match, pred, consensus) {
     // 🔥 flags the picks that actually beat the pool.
     const pts = opts.bonus
       ? `<span class="pick-points" title="Upset bonus — few brackets backed this winner">🔥+${opts.bonus}</span>` : "";
-    const actual = opts.actual
-      ? `<span class="pick-actual" title="Actual winner">→ ${escapeHtml(shortCode(opts.actual))}</span>` : "";
     // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
     const share = opts.favored && opts.share != null
       ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
@@ -504,7 +502,7 @@ function canvasCard(roundKey, match, pred, consensus) {
         }</span>` : "";
     return `<div class="team-row${cls}" title="${escapeAttr(team)}${titleSuffix}">
         ${flag(team)}<span class="team-name">${escapeHtml(shortCode(team))}</span>
-        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${actual}${share}${score}
+        ${mark ? `<span class="pick-mark">${mark}</span>` : ""}${pts}${share}${score}
       </div>`;
   }
 
@@ -538,11 +536,11 @@ function canvasCard(roundKey, match, pred, consensus) {
 
   // Person view: same two-team card as reality, populated from THEIR picks. The
   // team they chose to advance carries the correct/wrong/pending styling, the ✓,
-  // the points badge, and (when wrong) the actual winner; the other team — the
-  // one they predicted would lose here — is shown plain.
+  // and the points badge; a wrong pick reads as a strikethrough + red ✗ (the real
+  // winner is obvious from the highlighted card, so it isn't spelled out). The
+  // other team — the one they predicted would lose here — is shown plain.
   const guess = pred.picks[match.id];
   const state = pickState(match.id, guess);
-  const showActual = state === "wrong" && actual ? actual : null;
   // Per-pick upset bonus, read from the breakdown computed at scoring time (only
   // ever non-zero on a correct R32 pick). Used to badge the pick with 🔥+N.
   const bd = pred.breakdown && pred.breakdown.find(b => b.matchId === match.id);
@@ -556,7 +554,7 @@ function canvasCard(roundKey, match, pred, consensus) {
       // (not dimmed like the old subtractive view) before a result is in.
       const opts = state === "pending"
         ? { chosen: true }
-        : { state, bonus, actual: showActual };
+        : { state, bonus };
       return row(team, opts);
     }
     return row(team, {});

@@ -383,15 +383,13 @@ img.flag {
 /* Three-letter country codes read as a stadium ticker: monospace everywhere
    they appear — bracket cards (.team-name, always a code or "TBD"), the
    ranked-list champion column (.lb-team), the pool-stat bars (.stat-bar-label),
-   the emphasised codes in stat-card lines (.stat-line strong — Most-predicted
-   Final, Most Shocking, Lone wolves), and the "→ MAR" actual-winner tag
-   (.pick-actual) — so the codes line up with the mono numerals already used for
-   ranks, scores and shares around them. */
+   and the emphasised codes in stat-card lines (.stat-line strong — Most-predicted
+   Final, Most Shocking, Lone wolves) — so the codes line up with the mono
+   numerals already used for ranks, scores and shares around them. */
 .team-row .team-name,
 .lb-team,
 .stat-bar-label,
-.stat-line strong,
-.team-row .pick-actual {
+.stat-line strong {
   font-family: var(--font-mono);
 }
 .team-row .pick-dot {
@@ -464,7 +462,6 @@ img.flag {
 .team-row .pick-mark { flex: none; font-family: var(--font-mono); font-size: clamp(9px, 0.8vw, 12px); width: 12px; text-align: center; }
 .team-row.pick-correct .pick-mark { color: var(--gold-bright); }
 .team-row.pick-wrong .pick-mark { color: var(--red-card); }
-.team-row .pick-actual { flex: none; font-size: clamp(8px, 0.7vw, 11px); color: rgba(246,243,234,0.55); }
 /* Upset bonus flag (🔥+N) on a correct R32 pick that beat the pool — shown beside
    the ✓ so the boldest calls pop on the scorecard. Ordinary correct picks carry
    no numeric badge (their place value would read as a giant, broken number). */
@@ -1398,7 +1395,8 @@ footer.site-footer {
   /* Bump the primary reading text on phones. The 1024px desktop layout is scaled
      down to the physical screen (~0.38x on a 390px phone), so default sizes read
      tiny; larger type here keeps the standings + stat cards legible without a
-     pinch-zoom. Bracket rows (secondary, at the page bottom) get a gentler bump. */
+     pinch-zoom. Bracket rows get a gentler bump — applied to BOTH brackets (see
+     the shared .bracket-region rules just below). */
   .lb-name { font-size: 20px; }
   .lb-score { font-size: 18px; }
   .lb-rank { font-size: 18px; }
@@ -1408,36 +1406,43 @@ footer.site-footer {
   .stat-bar-label { font-size: 15px; }
   .stat-bar-val { font-size: 14px; }
   .cont-chip { font-size: 16px; }
-  #bracket-canvas-root .team-row { font-size: 13px; }
-  #bracket-canvas-root .sym-R32 .team-row { font-size: 13px; }
+  .bracket-region .team-row { font-size: 13px; }
+  .bracket-region .sym-R32 .team-row { font-size: 13px; }
 
-  /* ---- Phone bracket readability (leaderboard canvas only) ----
+  /* ---- Phone bracket readability (BOTH brackets) ----
      The bracket is a fixed 9-column grid, so it's zero-sum horizontally. These
      rules make it legible on a phone by (a) abbreviating + enlarging the round
      labels, (b) rendering the code and the settled goal score at the SAME size
      (the score inherits the row font) while keeping the pool-% small and inline,
      and (c) reclaiming a few pixels of padding/gap across every round so a
      penalty scoreline "1(4)" never truncates a 3-letter code — in any round.
-     Scoped to #bracket-canvas-root so the predictor page is untouched.
-     Note: a card is either DECIDED (shows .team-score, no %) or PROJECTED (shows
-     .proj-share, no goal) — the two never share a row. The connector geometry is
-     left at the shared default (see below) so it reads identically to predict. */
+     Scoped to .bracket-region — the class shared by BOTH the predictor
+     (#bracket-root) and the leaderboard (#bracket-canvas-root) brackets — so the
+     two read the same on a phone (parity by construction, not by matching numbers
+     across selectors). The only leaderboard-only bit is the pool-% chip (below),
+     which the predictor markup never emits.
+     Note: on the leaderboard a card is either DECIDED (shows .team-score, no %) or
+     PROJECTED (shows .proj-share, no goal) — the two never share a row. The
+     connector geometry is left at the shared default (see below) so it reads
+     identically across both brackets. */
 
   /* (a) Round labels: full names are unreadably small on a phone column, so swap
      to short codes rendered large via ::after. */
-  #bracket-canvas-root .sym-label { font-size: 0; letter-spacing: 0; overflow: visible; text-overflow: clip; }
-  #bracket-canvas-root .sym-label::after { font-family: var(--font-mono); font-size: 15px; line-height: 1; color: var(--gold-bright); }
-  #bracket-canvas-root .sym-label:nth-child(1)::after, #bracket-canvas-root .sym-label:nth-child(9)::after { content: "R32"; }
-  #bracket-canvas-root .sym-label:nth-child(2)::after, #bracket-canvas-root .sym-label:nth-child(8)::after { content: "R16"; }
-  #bracket-canvas-root .sym-label:nth-child(3)::after, #bracket-canvas-root .sym-label:nth-child(7)::after { content: "QF"; }
-  #bracket-canvas-root .sym-label:nth-child(4)::after, #bracket-canvas-root .sym-label:nth-child(6)::after { content: "SF"; }
-  #bracket-canvas-root .sym-label:nth-child(5)::after { content: "Final"; }
+  .bracket-region .sym-label { font-size: 0; letter-spacing: 0; overflow: visible; text-overflow: clip; }
+  .bracket-region .sym-label::after { font-family: var(--font-mono); font-size: 15px; line-height: 1; color: var(--gold-bright); }
+  .bracket-region .sym-label:nth-child(1)::after, .bracket-region .sym-label:nth-child(9)::after { content: "R32"; }
+  .bracket-region .sym-label:nth-child(2)::after, .bracket-region .sym-label:nth-child(8)::after { content: "R16"; }
+  .bracket-region .sym-label:nth-child(3)::after, .bracket-region .sym-label:nth-child(7)::after { content: "QF"; }
+  .bracket-region .sym-label:nth-child(4)::after, .bracket-region .sym-label:nth-child(6)::after { content: "SF"; }
+  .bracket-region .sym-label:nth-child(5)::after { content: "Final"; }
 
   /* (b) The settled goal (a played match's result) and the country code render
      at the SAME size: .team-score sets no font-size, so it inherits the 13px row
-     — so "GER" and "1(3)" read as one scoreline. The pool-% stays small and
-     inline (secondary metadata; its projection cards carry no goal score). */
-  #bracket-canvas-root .team-row .proj-share { font-size: 9px; }
+     — so "GER" and "1(3)" read as one scoreline. The pool-% stays smaller than the
+     code (secondary metadata; its projection cards carry no goal score) but is
+     nudged up for phone legibility and given a hair of right-margin so it doesn't
+     hug the card's right border. */
+  #bracket-canvas-root .team-row .proj-share { font-size: 11px; margin-right: 4px; }
 
   /* (c) Reclaim a few pixels of padding + inner gap on EVERY round (not just
      R32) so a penalty "1(4)" never truncates a 3-letter code even in the
@@ -1446,9 +1451,9 @@ footer.site-footer {
      touched: it must stay at the shared default (clamp(4px,0.6vw,12px)) so the
      connector prong — sized to the same clamp — bridges the gutter and kisses
      the feeder card exactly as on predict, rather than overshooting into it. */
-  #bracket-canvas-root .match-card { padding-left: 3px; padding-right: 3px; }
-  #bracket-canvas-root .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
-  #bracket-canvas-root .sym-R32 .team-row .flag { width: 20px; height: 14px; }
+  .bracket-region .match-card { padding-left: 3px; padding-right: 3px; }
+  .bracket-region .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
+  .bracket-region .sym-R32 .team-row .flag { width: 20px; height: 14px; }
 
   /* Reserve the standings points column for the max possible score (124,880 →
      "124,880pts" at 18px here) so it never clips as scores climb. */
