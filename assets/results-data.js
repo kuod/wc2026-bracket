@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-02T01:36:53Z",
+  "generatedAt": "2026-07-02T02:13:25Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -164,18 +164,18 @@ window.WC2026_RESULTS = {
       "completedAt": "2026-07-01"
     },
     "R32-10": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "United States",
       "teamB": "Bosnia and Herzegovina",
-      "winner": null,
+      "winner": "United States",
       "homeTeam": "United States",
       "awayTeam": "Bosnia and Herzegovina",
-      "homeScore": "1",
+      "homeScore": "2",
       "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "NS",
+      "decidedBy": "FT",
       "sportsDbEventId": "760494",
       "source": "ESPN",
       "completedAt": "2026-07-02T00:00Z"
@@ -326,9 +326,19 @@ window.WC2026_RESULTS = {
     "R16-4": {
       "status": "scheduled",
       "round": "R16",
-      "teamA": null,
+      "teamA": "United States",
       "teamB": "Belgium",
-      "winner": null
+      "winner": null,
+      "homeTeam": "United States",
+      "awayTeam": "Belgium",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760507",
+      "source": "ESPN",
+      "completedAt": "2026-07-07T00:00Z"
     },
     "R16-5": {
       "status": "scheduled",
@@ -444,14 +454,6 @@ window.WC2026_RESULTS = {
       "away": "Round of 32 12 Winner",
       "resolvedHome": null,
       "resolvedAway": null
-    },
-    {
-      "eventId": "760507",
-      "source": "ESPN",
-      "home": "Round of 32 9 Winner",
-      "away": "Belgium",
-      "resolvedHome": null,
-      "resolvedAway": "Belgium"
     },
     {
       "eventId": "760509",
