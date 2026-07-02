@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-02T02:13:25Z",
+  "generatedAt": "2026-07-02T06:53:40Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -25,7 +25,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "2499618",
       "source": "TheSportsDB",
-      "completedAt": "2026-06-28"
+      "completedAt": "2026-06-28",
+      "kickoffAt": "2026-06-28T19:00:00"
     },
     "R32-2": {
       "status": "complete",
@@ -42,7 +43,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "2499835",
       "source": "TheSportsDB",
-      "completedAt": "2026-06-29"
+      "completedAt": "2026-06-29",
+      "kickoffAt": "2026-06-29T17:00:00"
     },
     "R32-3": {
       "status": "complete",
@@ -59,7 +61,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "AP",
       "sportsDbEventId": "2502846",
       "source": "TheSportsDB",
-      "completedAt": "2026-06-29"
+      "completedAt": "2026-06-29",
+      "kickoffAt": "2026-06-29T20:30:00"
     },
     "R32-4": {
       "status": "complete",
@@ -76,7 +79,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "AP",
       "sportsDbEventId": "760488",
       "source": "ESPN",
-      "completedAt": "2026-06-30T01:00Z"
+      "completedAt": "2026-06-30T01:00Z",
+      "kickoffAt": "2026-06-30T01:00Z"
     },
     "R32-5": {
       "status": "complete",
@@ -93,7 +97,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "2502605",
       "source": "TheSportsDB",
-      "completedAt": "2026-06-30"
+      "completedAt": "2026-06-30",
+      "kickoffAt": "2026-06-30T17:00:00"
     },
     "R32-6": {
       "status": "complete",
@@ -110,7 +115,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "2502847",
       "source": "TheSportsDB",
-      "completedAt": "2026-06-30"
+      "completedAt": "2026-06-30",
+      "kickoffAt": "2026-06-30T21:00:00"
     },
     "R32-7": {
       "status": "complete",
@@ -127,7 +133,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "760491",
       "source": "ESPN",
-      "completedAt": "2026-07-01T02:00Z"
+      "completedAt": "2026-07-01T02:00Z",
+      "kickoffAt": "2026-07-01T02:00Z"
     },
     "R32-8": {
       "status": "complete",
@@ -144,7 +151,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "2503391",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-01"
+      "completedAt": "2026-07-01",
+      "kickoffAt": "2026-07-01T16:00:00"
     },
     "R32-9": {
       "status": "complete",
@@ -161,7 +169,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "AET",
       "sportsDbEventId": "2503392",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-01"
+      "completedAt": "2026-07-01",
+      "kickoffAt": "2026-07-01T20:00:00"
     },
     "R32-10": {
       "status": "complete",
@@ -178,7 +187,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "FT",
       "sportsDbEventId": "760494",
       "source": "ESPN",
-      "completedAt": "2026-07-02T00:00Z"
+      "completedAt": "2026-07-02T00:00Z",
+      "kickoffAt": "2026-07-02T00:00Z"
     },
     "R32-11": {
       "status": "scheduled",
@@ -195,7 +205,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2503636",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-02"
+      "completedAt": "2026-07-02",
+      "kickoffAt": "2026-07-02T19:00:00"
     },
     "R32-12": {
       "status": "scheduled",
@@ -212,7 +223,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "760498",
       "source": "ESPN",
-      "completedAt": "2026-07-03T03:00Z"
+      "completedAt": "2026-07-03T03:00Z",
+      "kickoffAt": "2026-07-03T03:00Z"
     },
     "R32-13": {
       "status": "scheduled",
@@ -229,7 +241,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2503393",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-02"
+      "completedAt": "2026-07-02",
+      "kickoffAt": "2026-07-02T23:00:00"
     },
     "R32-14": {
       "status": "scheduled",
@@ -246,7 +259,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2502848",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-03"
+      "completedAt": "2026-07-03",
+      "kickoffAt": "2026-07-03T18:00:00"
     },
     "R32-15": {
       "status": "scheduled",
@@ -263,7 +277,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2502849",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-03"
+      "completedAt": "2026-07-03",
+      "kickoffAt": "2026-07-03T22:00:00"
     },
     "R32-16": {
       "status": "scheduled",
@@ -280,7 +295,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "760501",
       "source": "ESPN",
-      "completedAt": "2026-07-04T01:30Z"
+      "completedAt": "2026-07-04T01:30Z",
+      "kickoffAt": "2026-07-04T01:30Z"
     },
     "R16-1": {
       "status": "scheduled",
@@ -297,7 +313,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2505624",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-04"
+      "completedAt": "2026-07-04",
+      "kickoffAt": "2026-07-04T21:00:00"
     },
     "R16-2": {
       "status": "scheduled",
@@ -314,7 +331,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2505183",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-04"
+      "completedAt": "2026-07-04",
+      "kickoffAt": "2026-07-04T17:00:00"
     },
     "R16-3": {
       "status": "scheduled",
@@ -338,7 +356,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "760507",
       "source": "ESPN",
-      "completedAt": "2026-07-07T00:00Z"
+      "completedAt": "2026-07-07T00:00Z",
+      "kickoffAt": "2026-07-07T00:00Z"
     },
     "R16-5": {
       "status": "scheduled",
@@ -355,7 +374,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "2505462",
       "source": "TheSportsDB",
-      "completedAt": "2026-07-05"
+      "completedAt": "2026-07-05",
+      "kickoffAt": "2026-07-05T20:00:00"
     },
     "R16-6": {
       "status": "scheduled",
@@ -372,7 +392,8 @@ window.WC2026_RESULTS = {
       "decidedBy": "NS",
       "sportsDbEventId": "760505",
       "source": "ESPN",
-      "completedAt": "2026-07-06T00:00Z"
+      "completedAt": "2026-07-06T00:00Z",
+      "kickoffAt": "2026-07-06T00:00Z"
     },
     "R16-7": {
       "status": "scheduled",
