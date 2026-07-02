@@ -35,6 +35,14 @@ const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to sc
 // matchKnownAt()/lateShare()/scorePrediction() below.
 const LATE_MIN_PICKERS  = 6;              // crowd sample needed before a share is meaningful (mirrors R32_MIN_ELIGIBLE)
 const LATE_GUARD_CREDIT = 0.5;            // credit when neither crowd is big enough to judge
+// Gated floor for late-but-correct picks: a pick the crowd substantially backed
+// (share ≥ LATE_FLOOR_MIN_SHARE) is worth at least LATE_FLOOR — so a latecomer who
+// "would have picked the obvious winner anyway" isn't docked to near-nothing. A late
+// pick BELOW that share (a lone-wolf hindsight upset) keeps its raw low share, so
+// peeking at an upset result still pays ≈0. This softens the harsh case without
+// re-opening the cheat the receipt system exists to neutralize.
+const LATE_FLOOR           = 0.5;
+const LATE_FLOOR_MIN_SHARE = 1 / 3;
 // Grace window: submissions are only penalized once the Round of 32 is well under
 // way. Concretely, the cutoff is the moment the FIRST 8 R32 matches had been played
 // (half the round). The board was reset early (bad architecture) and a wave of
@@ -416,6 +424,11 @@ function graceUntilMs() {
 // a neutral guard credit when neither crowd is big enough to mean anything. An
 // even-split match lands near 0.5 naturally; a lone-wolf hindsight pick lands ≈0.
 function lateShare(matchId, winner, knownAt) {
+  // Gated floor: a well-backed pick (crowd share ≥ LATE_FLOOR_MIN_SHARE) is worth at
+  // least LATE_FLOOR; a lightly-backed one keeps its raw share (so late lone-wolf
+  // hindsight upsets stay ≈0). Applied to both crowd measures below.
+  const floored = share => share >= LATE_FLOOR_MIN_SHARE ? Math.max(share, LATE_FLOOR) : share;
+
   // 1) On-time crowd: picks on this match submitted before it was knowable. The
   //    late scorer is excluded automatically (their own timestamp is past knownAt).
   let onTimeN = 0, onTimeWinner = 0;
@@ -427,7 +440,7 @@ function lateShare(matchId, winner, knownAt) {
     onTimeN++;
     if (g === winner) onTimeWinner++;
   }
-  if (onTimeN >= LATE_MIN_PICKERS) return onTimeWinner / onTimeN;
+  if (onTimeN >= LATE_MIN_PICKERS) return floored(onTimeWinner / onTimeN);
 
   // 2) Whole-pool consensus, leave-one-out (remove the scorer, who is a correct picker).
   const dist = tally(matchId);
@@ -435,7 +448,7 @@ function lateShare(matchId, winner, knownAt) {
   const others = totalPickers - 1;
   if (others >= LATE_MIN_PICKERS) {
     const hit = dist.find(d => d.team === winner);
-    return ((hit ? hit.count : 0) - 1) / others;
+    return floored(((hit ? hit.count : 0) - 1) / others);
   }
 
   // 3) Too few brackets either way — neither full trust nor zero.
