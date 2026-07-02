@@ -35,12 +35,14 @@ const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to sc
 // matchKnownAt()/lateShare()/scorePrediction() below.
 const LATE_MIN_PICKERS  = 6;              // crowd sample needed before a share is meaningful (mirrors R32_MIN_ELIGIBLE)
 const LATE_GUARD_CREDIT = 0.5;            // credit when neither crowd is big enough to judge
-// Reset-day amnesty: the leaderboard was reset early (bad architecture), and a wave
-// of people legitimately re-submitted through Jul 1. Their rows carry that late
-// re-submit timestamp with no history, so receipt-scoring would wrongly penalize
-// them. Any bracket submitted at/before this moment is scored NORMALLY on every
-// pick, regardless of match timing — the amnesty covers the whole resubmit window.
-const LATE_GRACE_UNTIL_MS = Date.parse("2026-07-02T00:00:00Z");  // end of Jul 1 UTC
+// Grace window: submissions are only penalized once the Round of 32 is well under
+// way. Concretely, the cutoff is the moment the FIRST 8 R32 matches had been played
+// (half the round). The board was reset early (bad architecture) and a wave of
+// people legitimately re-submitted around then; their rows carry that late re-submit
+// timestamp with no history, so this amnesty scores them NORMALLY on every pick.
+// Tying it to games-played (not a hardcoded date) self-adjusts to the real schedule
+// and lands naturally in the same window. See graceUntilMs().
+const LATE_GRACE_MATCHES = 8;
 // Kickoff → "result is knowable" offsets. We don't have a true final-whistle time,
 // so we approximate from kickoff + a duration by how the match was decided, + grace.
 const DUR_REGULATION_MS = (2 * 60 + 15) * 60 * 1000;  // FT      → +2h15m
@@ -376,6 +378,30 @@ function matchKnownAt(matchId) {
   return t + offset + GRACE_MS;
 }
 
+// The grace cutoff, as epoch-ms: the moment the first LATE_GRACE_MATCHES (8) R32
+// matches had all been played — i.e. the 8th-earliest knowable time among decided
+// R32 matches. Any bracket submitted at/before this is scored normally (see the
+// LATE_GRACE_MATCHES note). Returns Infinity until 8 R32 matches are decided, so
+// while the round is still filling in, NOTHING is ever late — the whole early
+// window (including the reset resubmit wave) is covered. Memoized per results load.
+let _graceUntilCache = { key: null, val: null };
+function graceUntilMs() {
+  const key = (resultsMeta && resultsMeta.generatedAt) || "none";
+  if (_graceUntilCache.key === key) return _graceUntilCache.val;
+  const r32 = (ROUNDS.find(r => r.key === "R32") || { matches: [] }).matches;
+  const times = [];
+  for (const m of r32) {
+    if (!actualResults[m.id]) continue;        // only decided R32 matches count
+    const t = matchKnownAt(m.id);
+    if (t != null) times.push(t);
+  }
+  times.sort((a, b) => a - b);
+  // Not enough decided yet → grace still fully open (Infinity: no pick is late).
+  const val = times.length >= LATE_GRACE_MATCHES ? times[LATE_GRACE_MATCHES - 1] : Infinity;
+  _graceUntilCache = { key, val };
+  return val;
+}
+
 // Receipt-credit share for a LATE correct pick: how much of the crowd also backed
 // this winner, in [0,1]. Prefer the "on-time crowd" (brackets submitted before the
 // result was knowable) — they're the untainted signal, and late brackets can't
@@ -422,8 +448,10 @@ function scorePrediction(pred) {
   const breakdown = [];
   const roundSubtotals = {};
   const subTs = Date.parse(pred.timestamp || pred.submittedAt);
-  // Reset-day amnesty: brackets submitted within the grace window are never late.
-  const graced = !isNaN(subTs) && !isNaN(LATE_GRACE_UNTIL_MS) && subTs <= LATE_GRACE_UNTIL_MS;
+  // Grace: brackets submitted before the first 8 R32 matches were played are never
+  // late (covers the early/reset resubmit wave). graceUntilMs() is Infinity until
+  // 8 matches are decided, so everything is graced while the round is still filling.
+  const graced = !isNaN(subTs) && subTs <= graceUntilMs();
   for (const round of ROUNDS) {
     let roundCorrect = 0, roundDecided = 0, roundBonus = 0;
     let roundLateShares = 0, roundLateCount = 0;
@@ -608,10 +636,10 @@ function canvasCard(roundKey, match, pred, consensus) {
     // 🔥 flags the picks that actually beat the pool.
     const pts = opts.bonus
       ? `<span class="pick-points" title="Upset bonus — few brackets backed this winner">🔥+${opts.bonus}</span>` : "";
-    // Receipt chip: a correct pick submitted AFTER its result was known. A late pick
-    // never carries an upset bonus, so 🧾 slots into the same place 🔥 would have.
+    // Late chip: a correct pick submitted AFTER its result was known. A late pick
+    // never carries an upset bonus, so 🕒 slots into the same place 🔥 would have.
     const receipt = opts.receipt
-      ? `<span class="pick-receipt" title="Late pick — submitted after the result was known, so it earns crowd-credit (${Math.round((opts.share || 0) * 100)}% of the pool), no upset bonus">🧾</span>` : "";
+      ? `<span class="pick-receipt" title="Late pick — submitted after the result was known, so it earns crowd-credit (${Math.round((opts.share || 0) * 100)}% of the pool), no upset bonus">🕒</span>` : "";
     // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
     const share = opts.favored && opts.share != null
       ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
@@ -736,10 +764,10 @@ function roundStrip(subs) {
     const live = s.decided > 0;
     const fire = r.key === "R32" && s.bonus > 0
       ? `<span class="rc-fire" title="Upset bonus earned">🔥+${s.bonus}</span>` : "";
-    // Receipt glyph: some of this round's correct picks were submitted late and
+    // Late glyph: some of this round's correct picks were submitted late and
     // scored on crowd-credit. Muted so it flags the fact without shouting.
     const receipt = s.lateCount > 0
-      ? `<span class="rc-receipt" title="${s.lateCount} ${plural(s.lateCount, "pick")} scored on receipt — submitted after the result was known">🧾</span>` : "";
+      ? `<span class="rc-receipt" title="${s.lateCount} ${plural(s.lateCount, "pick")} scored late — submitted after the result was known">🕒</span>` : "";
     return `<span class="round-chip rc-${r.key.toLowerCase()}${live ? "" : " is-dim"}${s.correct ? " has-hits" : ""}">` +
              `<span class="rc-label">${roundShortLabel(r.key)}</span>` +
              `<span class="rc-count">${s.correct}<span class="rc-slash">/${s.total}</span></span>${fire}${receipt}` +
@@ -832,7 +860,7 @@ function renderLeaderboard() {
     // explains its own fairness.
     const submitted = formatSubmitted(p.timestamp || p.submittedAt);
     const submittedEl = submitted
-      ? `<span class="lb-submitted" title="Bracket submitted (server time) — scoring is cheating-aware">🧾 ${escapeHtml(submitted)}</span>`
+      ? `<span class="lb-submitted" title="Bracket submitted (server time) — scoring is cheating-aware">🕒 ${escapeHtml(submitted)}</span>`
       : `<span class="lb-submitted"></span>`;
     return `
       <li class="lb-entry${active}${medal ? " medal-" + medal : ""}" data-name="${escapeAttr(p.predictor)}">
