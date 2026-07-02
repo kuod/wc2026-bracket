@@ -233,15 +233,6 @@ function initPredictorPage() {
     document.getElementById("submit-toast").hidden = true;
   });
 
-  document.getElementById("copy-json-btn").addEventListener("click", () => {
-    const payload = buildPredictionPayload();
-    navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-    const btn = document.getElementById("copy-json-btn");
-    const original = btn.textContent;
-    btn.textContent = "Copied!";
-    setTimeout(() => { btn.textContent = original; }, 1500);
-  });
-
   document.getElementById("reset-btn").addEventListener("click", () => {
     if (!confirm("Clear all your picks and start over?")) return;
     picks = {};

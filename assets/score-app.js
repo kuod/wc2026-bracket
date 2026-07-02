@@ -96,6 +96,21 @@ function plural(n, singular, pluralForm) {
   return n === 1 ? singular : (pluralForm || singular + "s");
 }
 
+// Deterministically pick one option from a list, keyed to a stable string (a match
+// id, a predictor's name). DETERMINISTIC on purpose: renderPoolStats() re-runs on
+// every refresh, so Math.random() would reshuffle the copy on each render — this keeps
+// each row's phrasing frozen while still varying it across the list. Just enough
+// spread for a small list; not a cryptographic hash.
+function pickFor(options, key) {
+  const s = String(key);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return options[Math.abs(h) % options.length];
+}
+// Playful synonyms so the upset + lone-wolf lines don't read the same every time.
+const UPSET_VERBS = ["beat", "slayed", "killed", "defeated", "owned", "stunned", "toppled", "downed"];
+const LONE_PHRASES = ["alone on", "solo on", "all-in on", "riding", "backing", "betting on"];
+
 // A submission timestamp as a short, human "Jun 28, 3:41 PM" (viewer's locale/zone).
 // Prefer the trusted server-side write time; fall back to the client clock. Empty
 // string when there's nothing parseable, so callers can omit the element entirely.
@@ -1052,9 +1067,13 @@ function renderPoolStats() {
       ).join("")
     : `<p class="muted">Not enough finalist picks yet.</p>`;
 
-  // 3) Most divisive — the current round's match closest to an even split.
+  // 3) Most divisive — the current round's UPCOMING match closest to an even split.
+  //    Skips matches already decided so the card always previews a match still to be
+  //    played; since curRound is the earliest-incomplete round, once it finishes
+  //    currentRound() advances and this auto-populates the next round's showdown.
   let divisive = null;
   for (const m of curRoundMatches) {
+    if (actualResults[m.id]) continue;   // decided already — not an upcoming showdown
     const t = tally(m.id);
     if (t.length < 2) continue;
     const topShare = t[0].share;
@@ -1063,30 +1082,78 @@ function renderPoolStats() {
   const divisiveHtml = divisive
     ? `<div class="stat-sub muted">${divisive.match.id}</div>` +
       divisive.t.slice(0, 2).map(c => statBar(c.team, c.count, c.share)).join("")
-    : `<p class="muted">No picks yet.</p>`;
+    : `<p class="muted">No upcoming matches to split on yet.</p>`;
 
-  // 4) Most Shocking — upsets in the current round: the weaker team (higher FIFA
-  //    rank number) beating the stronger one. Sorted by the size of the ranking
-  //    gap so the biggest stunner leads.
-  const upsets = [];
-  for (const m of curRoundMatches) {
-    const winner = actualResults[m.id];
-    if (!winner) continue;
-    const [teamA, teamB] = actualMatchTeams(curRound, m);
-    if (!teamA || !teamB) continue;
-    const loser = winner === teamA ? teamB : teamA;
-    const gap = rankOf(winner) - rankOf(loser);   // >0 means a weaker side won
-    if (gap > 0) upsets.push({ winner, loser, gap, matchId: m.id });
+  // 4) Most Shocking — the tournament's biggest stunners SO FAR, across every decided
+  //    round (not just the current one), so past giant-killings stay on the wall.
+  //    Two independent notions of "shock", summed:
+  //      (a) FIFA-rank upset — a weaker side (higher rank number) beat a stronger one;
+  //          the component is the ranking gap.
+  //      (b) Pool upset — the crowd's favorite between the TWO TEAMS THAT ACTUALLY
+  //          PLAYED lost (head-to-head, so later-round picks for teams that never
+  //          reached the slot don't distort it); the component is the head-to-head
+  //          margin the loser was favored by, in points.
+  //    A result qualifies if EITHER axis fires; the summed shock ranks them.
+  const allUpsets = [];
+  for (const round of ROUNDS) {
+    for (const m of round.matches) {
+      const winner = actualResults[m.id];
+      if (!winner) continue;
+      const [teamA, teamB] = actualMatchTeams(round.key, m);
+      if (!teamA || !teamB) continue;
+      const loser = winner === teamA ? teamB : teamA;
+
+      // (a) FIFA-ranking gap (>0 means a weaker side won).
+      const rankGap = rankOf(winner) - rankOf(loser);
+      const rankComponent = Math.max(0, rankGap);
+
+      // (b) Head-to-head pool lean between the two actual participants.
+      const counts = {};
+      for (const c of tally(m.id)) counts[c.team] = c.count;
+      const winCount = counts[winner] || 0;
+      const loseCount = counts[loser] || 0;
+      const h2h = winCount + loseCount;
+      const loseShare = h2h ? loseCount / h2h : 0;   // crowd's backing of the loser
+      const isPoolUpset = loseCount > winCount;       // the pool's pick lost
+      const poolComponent = isPoolUpset ? Math.round((loseShare - (h2h ? winCount / h2h : 0)) * 100) : 0;
+
+      if (rankComponent === 0 && !isPoolUpset) continue;   // not shocking on either axis
+      allUpsets.push({ winner, loser, matchId: m.id, roundKey: round.key, rankGap,
+                       isPoolUpset, loseShare, shock: rankComponent + poolComponent });
+    }
   }
-  upsets.sort((a, b) => b.gap - a.gap || a.matchId.localeCompare(b.matchId));
+  allUpsets.sort((a, b) => b.shock - a.shock || a.matchId.localeCompare(b.matchId));
+  // Show the top 6 by shock, but GUARANTEE at least one from every round that produced
+  // an upset — so a lone R16 stunner isn't buried under six R32 giant-killings. Reserve
+  // each round's biggest shock first (only 5 rounds, so this never uses more than the
+  // cap of 6), then fill the rest by overall shock; dedupe by match, re-sort so the
+  // biggest stunner still leads.
+  const SHOCK_CAP = 6;
+  const picked = new Map();   // matchId -> upset
+  for (const round of ROUNDS) {
+    const top = allUpsets.find(u => u.roundKey === round.key);   // allUpsets is shock-sorted
+    if (top) picked.set(top.matchId, top);
+  }
+  for (const u of allUpsets) {
+    if (picked.size >= SHOCK_CAP) break;
+    picked.set(u.matchId, u);
+  }
+  const upsets = [...picked.values()].sort((a, b) => b.shock - a.shock || a.matchId.localeCompare(b.matchId));
   const upsetHtml = upsets.length
     ? upsets.slice(0, 6).map(u => {
-        // Fire scales with the ranking gap: every upset earns one 🔥, +1 per ~10
-        // spots jumped, capped at 5 so a giant-killing can't overflow the row.
-        const fire = "🔥".repeat(Math.min(5, 1 + Math.floor(u.gap / 10)));
-        return `<div class="stat-line"><span>${flag(u.winner)} <strong title="${escapeAttr(u.winner)}">${escapeHtml(shortCode(u.winner))}</strong> beat ${flag(u.loser)} <strong title="${escapeAttr(u.loser)}">${escapeHtml(shortCode(u.loser))}</strong> <span class="upset-fire" title="Upset rating: +${u.gap} ranking spots">${fire}</span></span><span class="muted">${u.matchId}</span></div>`;
+        // Fire scales with the combined shock: every upset earns one 🔥, +1 per ~20
+        // shock points (rank spots + pool margin), capped at 5 so it can't overflow.
+        const fire = "🔥".repeat(Math.min(5, 1 + Math.floor(u.shock / 20)));
+        // Tooltip spells out whichever axes fired.
+        const bits = [];
+        if (u.rankGap > 0) bits.push(`+${u.rankGap} FIFA ranking spots`);
+        if (u.isPoolUpset) bits.push(`${Math.round(u.loseShare * 100)}% of head-to-head picks backed ${shortCode(u.loser)}`);
+        const upsetTitle = `Upset: ${bits.join(" · ")}`;
+        // Playful verb, keyed to the match so it stays put across re-renders.
+        const verb = pickFor(UPSET_VERBS, u.matchId);
+        return `<div class="stat-line"><span>${flag(u.winner)} <strong title="${escapeAttr(u.winner)}">${escapeHtml(shortCode(u.winner))}</strong> ${verb} ${flag(u.loser)} <strong title="${escapeAttr(u.loser)}">${escapeHtml(shortCode(u.loser))}</strong> <span class="upset-fire" title="${escapeAttr(upsetTitle)}">${fire}</span></span><span class="muted">${u.matchId}</span></div>`;
       }).join("")
-    : `<p class="muted">No upsets yet in ${curRoundLabel} — chalk is holding.</p>`;
+    : `<p class="muted">No upsets yet — chalk is holding.</p>`;
 
   // 5) Lone wolves — picks that exactly ONE person made AND whose team is still
   //    alive (a solo bet on an eliminated team is dead weight, so we drop it). We
@@ -1130,9 +1197,11 @@ function renderPoolStats() {
                       || a.roundIdx - b.roundIdx
                       || a.who.localeCompare(b.who));
   const loneHtml = lone.length
-    ? lone.slice(0, 6).map(c =>
-        `<div class="stat-line"><span>${escapeHtml(c.who)} alone on ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`
-      ).join("")
+    ? lone.slice(0, 6).map(c => {
+        // Playful phrasing, keyed to the person so their line stays put across re-renders.
+        const phrase = pickFor(LONE_PHRASES, c.who);
+        return `<div class="stat-line"><span>${escapeHtml(c.who)} ${phrase} ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`;
+      }).join("")
     : `<p class="muted">No live solo picks yet — the pool is in lockstep.</p>`;
 
   // 6) Pool at a glance + "chalk score" (how herd-like the pool is: average
@@ -1242,7 +1311,7 @@ function renderPoolStats() {
         ${divisiveHtml}
       </div>
       <div class="stat-card">
-        <h3>Most Shocking ${curRoundLabel}</h3>
+        <h3>David ‹vs› Goliath</h3>
         ${upsetHtml}
       </div>
       <div class="stat-card">

@@ -12,30 +12,37 @@
 
 <div class="page">
 
-  <!-- Slim top bar: title · name · progress · actions · nav. Shared chrome with
-       the leaderboard so navigating between the two feels seamless. -->
+  <!-- Slim top bar mirrors the leaderboard's ordered layout so the two pages feel
+       like one app: brand (1) · content (2) · spacer (3) · nav pills (4). The name
+       box + progress stack live in .topbar-entry; Clear/Submit sit beside them; the
+       Predict/Leaderboard pills stay pinned top-right on line 1. -->
   <header class="topbar">
     <h1 class="brand">
       Pick the <em>Bracket</em>
       <span class="brand-sub">FIFA World Cup 2026 · Knockout</span>
     </h1>
 
-    <div class="field-group" style="margin:0;">
-      <input type="text" id="predictor-name" placeholder="Your name — e.g. David K." autocomplete="name" aria-label="Your name">
-    </div>
+    <div class="topbar-content">
+      <div class="topbar-entry">
+        <div class="field-group" style="margin:0;">
+          <input type="text" id="predictor-name" placeholder="Your name — e.g. David K." autocomplete="name" aria-label="Your name">
+        </div>
+        <div class="progress-bar">
+          <span id="progress-label">0 / 31</span>
+          <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        </div>
+      </div>
 
-    <div class="progress-bar">
-      <span id="progress-label">0 / 31</span>
-      <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="reset-btn">Clear</button>
+        <button class="btn btn-primary" id="submit-btn" disabled>Submit</button>
+        <span id="submit-hint" class="submit-hint" hidden>🔒 Submissions closed — the Round of 32 is complete.</span>
+      </div>
     </div>
 
     <span class="spacer"></span>
 
     <div class="topbar-tools">
-      <button class="btn btn-primary" id="submit-btn" disabled>Submit</button>
-      <span id="submit-hint" class="submit-hint" hidden>🔒 Submissions closed — the Round of 32 is complete.</span>
-      <button class="btn btn-ghost" id="copy-json-btn">Copy JSON</button>
-      <button class="btn btn-ghost" id="reset-btn">Clear</button>
       <nav class="nav-pills">
         <a href="index.html" class="current">Predict</a>
         <a href="score.html">Leaderboard</a>

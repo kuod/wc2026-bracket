@@ -243,6 +243,34 @@ img.flag {
 .topbar input[type="text"] { width: clamp(120px, 16vw, 200px); padding: 8px 12px; }
 .topbar .nav-pills { margin: 0; }
 
+/* Predict page only: the name box + progress + action buttons occupy the same
+   order-2 slot the leaderboard gives its scoring-key chips, so the pills still pin
+   top-right on line 1. `flex: 0 1 auto` + `min-width: 0` let this block shrink and
+   wrap INTERNALLY (rather than shoving the pills off the line) — parity with
+   `.topbar .scoring-key`. */
+.topbar .topbar-content {
+  order: 2;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.4vw, 18px);
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+/* Name box with the completion bar stacked directly beneath it. A fixed column width
+   so the input and the progress bar share the SAME width (the input fills it via
+   width:100% below), rather than the input ending short of the bar. */
+.topbar-entry { display: flex; flex-direction: column; gap: 6px; width: clamp(180px, 20vw, 240px); }
+.topbar-entry .field-group { width: 100%; }
+.topbar-entry #predictor-name { width: 100%; }
+.topbar-entry .progress-bar { font-size: 11px; }
+/* Let the completion track flex to fill the row so the bar spans the full name width. */
+.topbar-entry .progress-track { flex: 1; width: auto; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Slim the buttons to the pill/chip scale IN THE TOP BAR only (the global .btn stays
+   chunky for the toast + bracket controls). */
+.topbar .btn { padding: 9px 16px; font-size: 12px; }
+
 /* ---------- Symmetric bracket (shared by predictor + leaderboard) ---------- */
 
 /* The region that holds the bracket; absorbs all leftover viewport height. */
@@ -773,18 +801,18 @@ textarea.json-box {
 .lb-row {
   position: relative;
   display: grid;
-  /* Fixed-width trailing columns (champ / correct / score) so the flag at the
-     champ cell's left edge is a TRUE column — invariant row-to-row. With auto
-     columns, a 1-digit score ("9pts") made its column ~10px narrower than a
-     2-digit one ("19pts"), which shrank the 1fr name and drifted the flag
-     sideways. The name (1fr) now absorbs all per-row variance; the numbers are
-     right-aligned below so their digits hold a steady right edge as scores grow
-     (score col sized to the endgame "19,294,989,169pts" — per-round heat lanes
-     push a good score to ~11 digits / 14 chars ≈ 143px at 15px mono — plus "31/31";
-     incl. portrait bumps). The champ (62) / correct (50) / score (154) track widths
-     are tuned so the four trailing columns (time · champ · correct · score) sit at
-     an even ~24px gap in the max-score row — see the measured tuning in git history. */
-  grid-template-columns: 40px minmax(0, 1fr) auto 62px 50px 154px 20px;
+  /* Every trailing column (time · champ · correct · score) is FIXED-WIDTH so each is a
+     TRUE column: a fixed track is identical across all rows in a render, so the flag's
+     left edge is rock-steady down the list. (Content-sized `auto` tracks size per-row —
+     "10/10" vs "9/10" gave each row a different width and drifted the flag ~8px.) The
+     name is the sole flexible track (1fr) and absorbs ALL the slack, so the four
+     metadata columns pack into a tight cluster on the far right and the name gets max
+     room to read. Widths are measured to their content max (time "🕒 Jul 01, 01:52 AM"
+     ≈126, flag+code ≈57, "31/31" ≈36) so the 12px grid `gap` is the ONLY spacing
+     between them — even gutters, no pooled slack. Score reserves the endgame
+     "19,294,989,169pts" (~143px at 15px mono) and is right-aligned so its digits hold a
+     steady right edge as totals climb; caret 22px. */
+  grid-template-columns: 40px minmax(0, 1fr) 128px 58px 40px 150px 22px;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -876,10 +904,9 @@ textarea.json-box {
    single-line and trim. The trusted server write time (the one scoring uses), muted
    + mono so it reads as metadata, with the 🕒 keeping the cheating-aware theme.
    Left-aligned with tabular figures so the fixed-width "Jun 20, 02:30 PM" stamps
-   stack into a clean, readable column down the list. The 12px right margin makes
-   the time→flag gap match the other trailing-column gaps, so the four columns
-   (time · champ · correct · score) breathe evenly in the max-score row. */
-.lb-submitted { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: start; text-align: left; margin-right: 12px; }
+   stack into a clean, readable column down the list. No right margin: the trailing
+   columns are content-sized (see .lb-row) so the grid `gap` alone spaces them evenly. */
+.lb-submitted { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: start; text-align: left; }
 /* "Please Resubmit" pill: the bracket was corrected after this person submitted,
    so their later-round picks were cleared. A muted red-card tint flags it as
    needs-attention without shouting; flex:none keeps it whole as the name ellipsizes. */
@@ -900,10 +927,14 @@ textarea.json-box {
 }
 /* The same nudge inline in the per-person hero stat line. */
 .ch-resubmit { color: var(--red-card); font-weight: 700; }
-.lb-champ { display: flex; align-items: center; }
-/* Right-aligned in their now fixed-width columns, so the digits hold a steady
-   right edge as counts/scores grow through the tournament. */
-.lb-correct { font-family: var(--font-mono); font-size: 13px; color: rgba(246,243,234,0.7); white-space: nowrap; justify-self: end; }
+.lb-champ { display: flex; align-items: center; justify-self: start; }
+/* Correct-count LEFT-aligned: its left edge (the one adjacent to the flag) then holds
+   steady row-to-row, so the flag→correct gutter is exactly the grid `gap` on every row
+   — matching time→flag — instead of drifting with the count's digit width. The small
+   trailing slack falls into the (far-away) score gutter where it's invisible. */
+.lb-correct { font-family: var(--font-mono); font-size: 13px; color: rgba(246,243,234,0.7); white-space: nowrap; justify-self: start; }
+/* Score stays RIGHT-aligned — it's a number, so its right edge holds steady as totals
+   climb through the tournament. */
 .lb-score { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 15px; font-weight: 700; letter-spacing: -0.02em; color: var(--gold-bright); white-space: nowrap; justify-self: end; }
 .lb-score .muted, .lb-correct .muted { font-size: 11px; font-weight: 400; margin-left: 2px; }
 .lb-caret { color: rgba(246,243,234,0.4); text-align: center; }
@@ -1392,6 +1423,7 @@ footer.site-footer {
   .sym-emblem { display: none; }
 
   .topbar { flex-wrap: wrap; gap: 8px 12px; }
+  .topbar .topbar-content { width: 100%; }
   .topbar .topbar-tools { width: 100%; justify-content: flex-start; }
 
   /* Leaderboard on phones: the LIVE RESULTS hero always leads (the page's
@@ -1537,14 +1569,13 @@ footer.site-footer {
   .bracket-region .team-row { gap: 2px; padding-left: 3px; padding-right: 3px; }
   .bracket-region .sym-R32 .team-row .flag { width: 20px; height: 14px; }
 
-  /* Reserve the standings points column for the max possible score (19,294,989,169
-     → "19,294,989,169pts") so it never clips as scores climb — the per-round heat
-     lanes push a good total to ~11 digits / 14 chars. Keep the submitted-time column
-     (the `auto` track after the name) so the 7 cells line up with the base grid —
-     otherwise later columns bleed into each other and the caret wraps to a second line.
-     Champ (62) / correct (50) / score (154) match the base grid so the four trailing
-     columns keep their even ~24px gaps in the max-score row on the pinned 1024 layout. */
-  .lb-row { grid-template-columns: 40px minmax(0, 1fr) auto 62px 50px 154px 20px; }
+  /* Keep in lockstep with the base .lb-row grid: fixed trailing tracks so the flag is
+     a steady column and the name (1fr) absorbs slack, pushing the metadata far right.
+     Slightly wider time/champ/correct here to fit the portrait font bumps (.lb-submitted
+     13px, .lb-correct/.lb-champ 15px); score still reserves the endgame total, caret 22px.
+     Restating it (rather than inheriting) keeps the 7 cells aligned on the pinned-1024
+     phone layout instead of bleeding / wrapping the caret. */
+  .lb-row { grid-template-columns: 40px minmax(0, 1fr) 138px 64px 48px 156px 22px; }
 
   /* Scoreboard hero on phones: the 1024px layout is scaled ~0.38x to the screen,
      so size the readout up to stay legible and keep the banner proportionate. */
