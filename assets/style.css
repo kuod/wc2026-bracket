@@ -1169,6 +1169,15 @@ body.on-leaderboard { overflow: auto; }
 .on-leaderboard .lb-stats { overflow: visible; }
 
 @media (min-width: 821px) {
+  /* Keep the whole top bar on one line above the phone-stack breakpoint: let the
+     order-2 block (chips / name+progress+actions) shrink & wrap INTERNALLY rather
+     than bumping the nav pills to a second line. Flex line-breaking uses each item's
+     flex-basis (the block's max-content width) BEFORE flex-shrink applies, so a
+     wrapping topbar drops the pills instead of shrinking the block — which is what
+     phone "Desktop site" mode hit: it ignores the 1024 viewport meta and forces
+     ~980px, right in the band where the row overflowed. nowrap forces the shrink. */
+  .topbar { flex-wrap: nowrap; }
+
   /* Desktop: a tall canvas like the predictions wallchart → all 16 R32 rows
      sit roomy with elbow connectors. */
   .on-leaderboard #bracket-canvas .bracket-region { height: min(80vh, 880px); overflow: visible; }
