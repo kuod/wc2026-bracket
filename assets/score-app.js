@@ -35,6 +35,12 @@ const R32_MIN_ELIGIBLE = 6;   // need ≥6 brackets to have picked a match to sc
 // matchKnownAt()/lateShare()/scorePrediction() below.
 const LATE_MIN_PICKERS  = 6;              // crowd sample needed before a share is meaningful (mirrors R32_MIN_ELIGIBLE)
 const LATE_GUARD_CREDIT = 0.5;            // credit when neither crowd is big enough to judge
+// Reset-day amnesty: the leaderboard was reset early (bad architecture), and a wave
+// of people legitimately re-submitted through Jul 1. Their rows carry that late
+// re-submit timestamp with no history, so receipt-scoring would wrongly penalize
+// them. Any bracket submitted at/before this moment is scored NORMALLY on every
+// pick, regardless of match timing — the amnesty covers the whole resubmit window.
+const LATE_GRACE_UNTIL_MS = Date.parse("2026-07-02T00:00:00Z");  // end of Jul 1 UTC
 // Kickoff → "result is knowable" offsets. We don't have a true final-whistle time,
 // so we approximate from kickoff + a duration by how the match was decided, + grace.
 const DUR_REGULATION_MS = (2 * 60 + 15) * 60 * 1000;  // FT      → +2h15m
@@ -416,6 +422,8 @@ function scorePrediction(pred) {
   const breakdown = [];
   const roundSubtotals = {};
   const subTs = Date.parse(pred.timestamp || pred.submittedAt);
+  // Reset-day amnesty: brackets submitted within the grace window are never late.
+  const graced = !isNaN(subTs) && !isNaN(LATE_GRACE_UNTIL_MS) && subTs <= LATE_GRACE_UNTIL_MS;
   for (const round of ROUNDS) {
     let roundCorrect = 0, roundDecided = 0, roundBonus = 0;
     let roundLateShares = 0, roundLateCount = 0;
@@ -428,7 +436,7 @@ function scorePrediction(pred) {
       if (state === "correct") {
         roundCorrect++;   // it IS a correct call; only its scoring changes when late
         const knownAt = matchKnownAt(match.id);
-        late = knownAt != null && !isNaN(subTs) && subTs > knownAt;
+        late = !graced && knownAt != null && !isNaN(subTs) && subTs > knownAt;
         if (late) {
           // Late: no base points inline, no upset bonus — only crowd-share credit,
           // accumulated and folded in per round below to keep the digit encoding.
@@ -819,17 +827,19 @@ function renderLeaderboard() {
     const resubmit = p.needsResubmit
       ? `<span class="lb-resubmit" title="The bracket was corrected — your later-round picks were cleared. Please resubmit.">Please Resubmit</span>`
       : "";
-    // Submission time (server clock preferred) shown under the name — the same
-    // trusted timestamp receipt-scoring uses, so the board explains its own fairness.
+    // Submission time (server clock preferred) — its own slim column just left of
+    // the champion flag. Same trusted timestamp receipt-scoring uses, so the board
+    // explains its own fairness.
     const submitted = formatSubmitted(p.timestamp || p.submittedAt);
     const submittedEl = submitted
       ? `<span class="lb-submitted" title="Bracket submitted (server time) — scoring is cheating-aware">🧾 ${escapeHtml(submitted)}</span>`
-      : "";
+      : `<span class="lb-submitted"></span>`;
     return `
       <li class="lb-entry${active}${medal ? " medal-" + medal : ""}" data-name="${escapeAttr(p.predictor)}">
         <button type="button" class="lb-row" aria-pressed="${active ? "true" : "false"}" aria-label="${escapeAttr(`Show ${p.predictor}'s bracket`)}">
           <span class="lb-rank ${medal}" data-flip="rank:${escapeAttr(p.predictor)}">${p.rank}</span>
-          <span class="lb-name"><span class="lb-name-top"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>${submittedEl}</span>
+          <span class="lb-name"><span class="lb-name-text">${escapeHtml(p.predictor)}</span>${resubmit}</span>
+          ${submittedEl}
           <span class="lb-champ">${p.champion ? teamCell(p.champion) : ""}</span>
           <span class="lb-correct">${p.correctCount}<span class="muted">/${decided || "—"}</span></span>
           <span class="lb-score"><span data-flip="score:${escapeAttr(p.predictor)}">${p.score.toLocaleString()}</span><span class="muted">${plural(p.score, "pt", "pts")}</span></span>
@@ -865,14 +875,15 @@ function renderLockedGroup() {
     .map(p => {
       const submitted = formatSubmitted(p.timestamp || p.submittedAt);
       const submittedEl = submitted
-        ? `<span class="lb-submitted">🔒 ${escapeHtml(submitted)}</span>` : "";
+        ? `<span class="lb-submitted">🔒 ${escapeHtml(submitted)}</span>` : `<span class="lb-submitted"></span>`;
       // Locked rows skip computeLeaderboard, so derive champion straight from picks.
       const champion = p.picks && p.picks["FINAL"] ? p.picks["FINAL"] : null;
       return `
         <li class="lb-entry lb-locked">
           <div class="lb-row" aria-disabled="true">
             <span class="lb-rank">🔒</span>
-            <span class="lb-name"><span class="lb-name-top"><span class="lb-name-text">${escapeHtml(p.predictor)}</span></span>${submittedEl}</span>
+            <span class="lb-name"><span class="lb-name-text">${escapeHtml(p.predictor)}</span></span>
+            ${submittedEl}
             <span class="lb-champ">${champion ? teamCell(champion) : ""}</span>
             <span class="lb-correct muted">—</span>
             <span class="lb-score muted">too late 🔒</span>

@@ -704,9 +704,9 @@ textarea.json-box {
 .key-chip b { color: var(--gold-bright); margin-left: 4px; }
 .key-note {
   margin: 0;
-  /* Wide enough that the full legend (now incl. the cheating-aware clause) still
-     settles into two lines rather than three. */
-  max-width: 96ch;
+  /* Two lines for the full legend (incl. the late-submission clause) without
+     over-widening the topbar — too wide squeezed the nav pills onto two rows. */
+  max-width: 74ch;
   font-family: var(--font-mono);
   font-size: 10px;
   line-height: 1.45;
@@ -761,7 +761,7 @@ textarea.json-box {
      sideways. The name (1fr) now absorbs all per-row variance; the numbers are
      right-aligned below so their digits hold a steady right edge as scores grow
      (widths sized for the endgame "112,509pts" / "31/31", incl. portrait bumps). */
-  grid-template-columns: 40px minmax(0, 1fr) 64px 50px 92px 20px;
+  grid-template-columns: 40px minmax(0, 1fr) auto 64px 50px 92px 20px;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -847,14 +847,12 @@ textarea.json-box {
 .lb-rank.silver { color: #cdd2d6; }
 .lb-rank.bronze { color: #cd915b; }
 
-/* Two-line stack: name (+ any resubmit pill) on top, submission time beneath. The
-   column keeps the muted timestamp from fighting the name's ellipsis. */
-.lb-name { font-weight: 700; font-size: 15.5px; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.lb-name-top { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.lb-name { font-weight: 700; font-size: 15.5px; min-width: 0; display: flex; align-items: center; gap: 8px; }
 .lb-name-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Submission receipt line: the trusted server write time, shown so the board wears
-   its cheating-aware scoring on its sleeve. Muted + mono so it reads as metadata. */
-.lb-submitted { font-family: var(--font-mono); font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; }
+/* Submission time: its OWN slim column just left of the champion flag, so rows stay
+   single-line and trim. The trusted server write time (the one scoring uses), muted
+   + mono so it reads as metadata, with the 🧾 keeping the cheating-aware theme. */
+.lb-submitted { font-family: var(--font-mono); font-size: 11px; font-weight: 400; line-height: 1.1; color: rgba(246,243,234,0.5); white-space: nowrap; justify-self: end; text-align: right; }
 /* "Please Resubmit" pill: the bracket was corrected after this person submitted,
    so their later-round picks were cleared. A muted red-card tint flags it as
    needs-attention without shouting; flex:none keeps it whole as the name ellipsizes. */
@@ -1399,6 +1397,10 @@ footer.site-footer {
   /* Champion + correct-count drop below the name on narrow screens. */
   .lb-champ { grid-column: 2 / 4; font-size: 12px; }
   .lb-correct { grid-column: 2; justify-self: start; }
+  /* The submitted-time column is secondary metadata; on genuinely narrow windows
+     it would push the row to three lines, so drop it here. (Real phones are pinned
+     to the 1024px layout and keep the column — see the viewport note below.) */
+  .lb-submitted { display: none; }
 }
 
 /* Very short viewports (e.g. landscape phones): shrink chrome so the bracket
