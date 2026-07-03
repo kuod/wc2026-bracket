@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-03T20:54:36Z",
+  "generatedAt": "2026-07-03T20:59:59Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -245,22 +245,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-02T23:00:00"
     },
     "R32-14": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "Australia",
       "teamB": "Egypt",
-      "winner": null,
+      "winner": "Egypt",
       "homeTeam": "Australia",
       "awayTeam": "Egypt",
       "homeScore": "1",
       "awayScore": "1",
-      "homeScoreExtra": null,
-      "awayScoreExtra": null,
-      "decidedBy": "P",
-      "sportsDbEventId": "2502848",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-03",
-      "kickoffAt": "2026-07-03T18:00:00"
+      "homeScoreExtra": 2,
+      "awayScoreExtra": 4,
+      "decidedBy": "AP",
+      "sportsDbEventId": "760499",
+      "source": "ESPN",
+      "completedAt": "2026-07-03T18:00Z",
+      "kickoffAt": "2026-07-03T18:00Z"
     },
     "R32-15": {
       "status": "scheduled",
@@ -410,7 +410,7 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "R16",
       "teamA": null,
-      "teamB": null,
+      "teamB": "Egypt",
       "winner": null
     },
     "R16-8": {
@@ -483,9 +483,9 @@ window.WC2026_RESULTS = {
       "eventId": "760509",
       "source": "ESPN",
       "home": "Round of 32 14 Winner",
-      "away": "Round of 32 16 Winner",
+      "away": "Egypt",
       "resolvedHome": null,
-      "resolvedAway": null
+      "resolvedAway": "Egypt"
     },
     {
       "eventId": "760508",
