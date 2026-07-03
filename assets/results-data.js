@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-02T23:33:34Z",
+  "generatedAt": "2026-07-03T01:11:05Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -227,22 +227,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-03T03:00Z"
     },
     "R32-13": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "Portugal",
       "teamB": "Croatia",
-      "winner": null,
+      "winner": "Portugal",
       "homeTeam": "Portugal",
       "awayTeam": "Croatia",
-      "homeScore": "0",
-      "awayScore": "0",
+      "homeScore": "2",
+      "awayScore": "1",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "1H",
-      "sportsDbEventId": "2503393",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-02",
-      "kickoffAt": "2026-07-02T23:00:00"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760496",
+      "source": "ESPN",
+      "completedAt": "2026-07-02T23:00Z",
+      "kickoffAt": "2026-07-02T23:00Z"
     },
     "R32-14": {
       "status": "scheduled",
@@ -337,9 +337,20 @@ window.WC2026_RESULTS = {
     "R16-3": {
       "status": "scheduled",
       "round": "R16",
-      "teamA": null,
+      "teamA": "Portugal",
       "teamB": "Spain",
-      "winner": null
+      "winner": null,
+      "homeTeam": "Portugal",
+      "awayTeam": "Spain",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760506",
+      "source": "ESPN",
+      "completedAt": "2026-07-06T19:00Z",
+      "kickoffAt": "2026-07-06T19:00Z"
     },
     "R16-4": {
       "status": "scheduled",
@@ -467,14 +478,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760506",
-      "source": "ESPN",
-      "home": "Round of 32 11 Winner",
-      "away": "Spain",
-      "resolvedHome": null,
-      "resolvedAway": "Spain"
     },
     {
       "eventId": "760509",
