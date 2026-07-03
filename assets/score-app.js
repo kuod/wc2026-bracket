@@ -67,6 +67,13 @@ const LATE_GUARD_CREDIT = 0.5;            // credit when neither crowd is big en
 // re-opening the cheat the receipt system exists to neutralize.
 const LATE_FLOOR           = 0.5;
 const LATE_FLOOR_MIN_SHARE = 1 / 3;
+// Master switch for the adaptive late-pick penalty (everything the LATE_*/matchKnownAt/
+// lateShare machinery drives). OFF for now — this is friends having fun, and at least
+// one late-looking bracket was a genuine, authentic late entry we don't want to dock.
+// The machinery is fully retained: flip to true to re-enable (e.g. if a score is ever
+// contested) and every late correct pick reverts to crowd-credit + the 🕒 receipt UI.
+// Guard OFF ≡ "no pick is ever late", which the digit-safe scoring already handles.
+const CHEAT_GUARD_ENABLED = false;
 // Grace window: submissions are only penalized once the Round of 32 is well under
 // way. Concretely, the cutoff is the moment the FIRST 8 R32 matches had been played
 // (half the round). The board was reset early (bad architecture) and a wave of
@@ -76,10 +83,14 @@ const LATE_FLOOR_MIN_SHARE = 1 / 3;
 // and lands naturally in the same window. See graceUntilMs().
 const LATE_GRACE_MATCHES = 8;
 // Kickoff → "result is knowable" offsets. We don't have a true final-whistle time,
-// so we approximate from kickoff + a duration by how the match was decided, + grace.
+// so we approximate the finish from kickoff + a duration by how the match was decided,
+// then add a generous buffer before a pick counts as "late".
 const DUR_REGULATION_MS = (2 * 60 + 15) * 60 * 1000;  // FT      → +2h15m
 const DUR_EXTRA_MS      = 3 * 60 * 60 * 1000;         // AET/AP  → +3h00m (also the lenient default when decided-by is unknown)
-const GRACE_MS          = 15 * 60 * 1000;             // +15m slack so a just-finished match isn't a knife-edge
+// A correct pick is only docked once it lands MORE THAN 24h after its match finished —
+// people can still submit later and stay roughly balanced; only picks made a full day
+// past a known result lose trust. Replaces the old 15m knife-edge grace.
+const LATE_WINDOW_MS    = 24 * 60 * 60 * 1000;        // finish + 24h buffer
 
 let actualResults = {};   // matchId -> winning team name (decided matches only)
 let resultsMeta = null;   // the WC2026_RESULTS payload (for the "updated" stamp)
@@ -426,20 +437,21 @@ function matchKnownAt(matchId) {
   const kickoff = r.kickoffAt || r.completedAt;
   if (!kickoff) return null;
   // Day-granular value (no time-of-day): we can't reason about duration, so treat
-  // the result as unknowable until the END of that UTC day — same-day submissions
-  // get the benefit of the doubt, only a strictly-later day counts as late.
+  // the result as unknowable until the END of that UTC day, then add the same 24h
+  // buffer — only a submission a full day past the day's end counts as late.
   if (/^\d{4}-\d{2}-\d{2}$/.test(kickoff)) {
     const day = Date.parse(kickoff);
-    return isNaN(day) ? null : day + 24 * 60 * 60 * 1000;
+    return isNaN(day) ? null : day + 24 * 60 * 60 * 1000 + LATE_WINDOW_MS;
   }
   const t = Date.parse(kickoff);
   if (isNaN(t)) return null;
   const by = r.decidedBy;
   // FT → regulation; AET/AP → the longer extra-time window. Anything else (a match
   // decided via override with no/NS decidedBy) uses the longer window too, so we
-  // never falsely flag a match that may have run long.
+  // never falsely flag a match that may have run long. Add the 24h buffer on top of
+  // the approximate finish so a pick is only late a full day after the result was known.
   const offset = by === "FT" ? DUR_REGULATION_MS : DUR_EXTRA_MS;
-  return t + offset + GRACE_MS;
+  return t + offset + LATE_WINDOW_MS;
 }
 
 // The grace cutoff, as epoch-ms: the moment the first LATE_GRACE_MATCHES (8) R32
@@ -538,7 +550,7 @@ function scorePrediction(pred) {
       if (state === "correct") {
         roundCorrect++;   // it IS a correct call; only its scoring changes when late
         const knownAt = matchKnownAt(match.id);
-        late = !graced && knownAt != null && !isNaN(subTs) && subTs > knownAt;
+        late = CHEAT_GUARD_ENABLED && !graced && knownAt != null && !isNaN(subTs) && subTs > knownAt;
         if (late) {
           // Late: no base points inline, no upset heat — only crowd-share credit,
           // accumulated and folded in per round below to keep the digit encoding.
@@ -938,8 +950,13 @@ function renderLeaderboard() {
     // the champion flag. Same trusted timestamp receipt-scoring uses, so the board
     // explains its own fairness.
     const submitted = formatSubmitted(p.timestamp || p.submittedAt);
+    // Only claim "cheating-aware" when the guard is actually on; otherwise the chip is
+    // a plain submission-time receipt (see CHEAT_GUARD_ENABLED).
+    const submittedTitle = CHEAT_GUARD_ENABLED
+      ? "Bracket submitted (server time) — scoring is cheating-aware"
+      : "Bracket submitted (server time)";
     const submittedEl = submitted
-      ? `<span class="lb-submitted" title="Bracket submitted (server time) — scoring is cheating-aware">🕒 ${escapeHtml(submitted)}</span>`
+      ? `<span class="lb-submitted" title="${escapeAttr(submittedTitle)}">🕒 ${escapeHtml(submitted)}</span>`
       : `<span class="lb-submitted"></span>`;
     return `
       <li class="lb-entry${active}${medal ? " medal-" + medal : ""}" data-name="${escapeAttr(p.predictor)}">

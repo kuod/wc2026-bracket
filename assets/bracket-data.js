@@ -176,23 +176,62 @@ const ROUNDS = [
 ];
 
 // Submissions hard-close once the Round of 32 is complete — the anti-cheat
-// backstop. The last R32 match (Colombia v Ghana) kicks off 9:30 PM EDT Fri
-// Jul 3, 2026; allowing for extra time + penalties it could finish ~12:45 AM
-// EDT Jul 4, so we lock at ~1:30 AM EDT Jul 4 (a cushion past a shootout) so
-// nobody is cut off mid-match. The predictor uses this to disable the Submit
-// button (client clock — UX only, spoofable); the leaderboard enforces it for
-// real against the trusted server timestamp (a submission past this is shown
-// but not scored). Shared here so both pages agree on the one moment.
-const SUBMISSIONS_CLOSE_AT = "2026-07-04T05:30:00Z";
-// Parsed epoch-ms (NaN-safe); helpers below read this.
+// backstop. The close moment is derived from the REAL schedule: the latest R32
+// kickoff (from results-data.js) plus a cushion for extra time + penalties + slack.
+// The last R32 match (Colombia v Ghana) kicks off 9:30 PM EDT Fri Jul 3, 2026 and
+// could run to a shootout ~12:45 AM EDT Jul 4, so the +4h cushion lands the lock at
+// ~1:30 AM EDT Jul 4 — nobody is cut off mid-match, and it auto-adjusts if the
+// schedule shifts LATER. If results data is absent (predictor before the first cron
+// run, or a failed fetch) we fall back to the fixed literal below, which also acts
+// as a FLOOR so a partial schedule can never pull the close earlier — the form
+// still locks on time. The predictor uses this to disable the Submit button (client
+// clock — UX only, spoofable); the leaderboard enforces it for real against the
+// trusted server timestamp (a submission past this is shown but not scored). Shared
+// here so both pages agree on the one moment.
+const SUBMISSIONS_CLOSE_AT = "2026-07-04T05:30:00Z";  // fixed floor + fallback when the R32 schedule is unavailable
+// Parsed epoch-ms (NaN-safe); the floor + fallback used by submissionsCloseMs() below.
 const SUBMISSIONS_CLOSE_MS = Date.parse(SUBMISSIONS_CLOSE_AT);
+const CLOSE_CUSHION_MS = 4 * 60 * 60 * 1000;  // extra time + penalties + slack past the last R32 kickoff
+
+// Parse a kickoff timestamp to epoch-ms, pinned to UTC. results-data.js MIXES
+// formats — ESPN writes a zoned "…Z", TheSportsDB a zone-LESS "2026-07-03T22:00:00"
+// — and Date.parse reads a zone-less datetime in the VIEWER's local zone. Left
+// unfixed that makes the close (and thus the scored/locked split) differ by browser
+// timezone, breaking the "everyone sees the same board" guarantee. So a zone-less
+// datetime gets an explicit "Z". (A date-only "2026-07-04" is already UTC per spec;
+// a value already carrying Z or a ±hh:mm offset is left untouched.)
+function parseKickoffMs(s) {
+  if (!s) return NaN;
+  const zoneless = s.indexOf("T") !== -1 && !/[zZ]$|[+-]\d{2}:?\d{2}$/.test(s);
+  return Date.parse(zoneless ? s + "Z" : s);
+}
+
+// The close moment as epoch-ms, computed at CALL TIME from the R32 schedule so it
+// never depends on script load order (results-data.js may load after this file).
+// = max(kickoffAt) over R32-1..R32-16 + CLOSE_CUSHION_MS, FLOORED at the fixed
+// literal so a partial schedule (only early kickoffs known) can never move the close
+// earlier and lock people out prematurely. Falls back to the literal when no R32
+// kickoff is known at all (data absent → fail-safe lock). With the full current
+// schedule this lands at exactly the literal (2026-07-04T05:30Z), UTC-deterministic.
+function submissionsCloseMs() {
+  const res = (typeof window !== "undefined" && window.WC2026_RESULTS && window.WC2026_RESULTS.results) || null;
+  let latest = NaN;
+  if (res) {
+    for (let i = 1; i <= 16; i++) {
+      const t = parseKickoffMs((res["R32-" + i] || {}).kickoffAt);
+      if (!isNaN(t) && (isNaN(latest) || t > latest)) latest = t;
+    }
+  }
+  return isNaN(latest) ? SUBMISSIONS_CLOSE_MS : Math.max(SUBMISSIONS_CLOSE_MS, latest + CLOSE_CUSHION_MS);
+}
 
 // Are submissions closed as of `whenMs` (default: now)? Used by the predictor to
 // gate the Submit button. NOTE: this trusts the caller's clock, so it's UX only;
 // scoring-time enforcement uses the trusted server timestamp per bracket.
 function submissionsClosed(whenMs) {
   const t = whenMs == null ? Date.now() : whenMs;
-  return !isNaN(SUBMISSIONS_CLOSE_MS) && t >= SUBMISSIONS_CLOSE_MS;
+  const close = submissionsCloseMs();
+  return !isNaN(close) && t >= close;
 }
 
 // Was a bracket submitted after the hard close? Feeds the leaderboard's "locked,
@@ -200,7 +239,8 @@ function submissionsClosed(whenMs) {
 // is treated as on-time (benefit of the doubt), matching the scorer's stance.
 function submittedAfterClose(ts) {
   const t = Date.parse(ts);
-  return !isNaN(t) && !isNaN(SUBMISSIONS_CLOSE_MS) && t >= SUBMISSIONS_CLOSE_MS;
+  const close = submissionsCloseMs();
+  return !isNaN(t) && !isNaN(close) && t >= close;
 }
 
 function escapeHtml(s) {
