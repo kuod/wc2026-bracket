@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-04T02:40:35Z",
+  "generatedAt": "2026-07-04T03:34:13Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -281,18 +281,18 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-03T22:00:00"
     },
     "R32-16": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "Colombia",
       "teamB": "Ghana",
-      "winner": null,
+      "winner": "Colombia",
       "homeTeam": "Colombia",
       "awayTeam": "Ghana",
       "homeScore": "1",
       "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "NS",
+      "decidedBy": "FT",
       "sportsDbEventId": "760501",
       "source": "ESPN",
       "completedAt": "2026-07-04T01:30Z",
@@ -428,8 +428,19 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "R16",
       "teamA": "Switzerland",
-      "teamB": null,
-      "winner": null
+      "teamB": "Colombia",
+      "winner": null,
+      "homeTeam": "Switzerland",
+      "awayTeam": "Colombia",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760508",
+      "source": "ESPN",
+      "completedAt": "2026-07-07T20:00Z",
+      "kickoffAt": "2026-07-07T20:00Z"
     },
     "QF-1": {
       "status": "scheduled",
@@ -489,14 +500,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760508",
-      "source": "ESPN",
-      "home": "Switzerland",
-      "away": "Round of 32 15 Winner",
-      "resolvedHome": "Switzerland",
-      "resolvedAway": null
     },
     {
       "eventId": "760510",
