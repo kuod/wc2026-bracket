@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-04T06:01:36Z",
+  "generatedAt": "2026-07-04T16:12:26Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -414,15 +414,15 @@ window.WC2026_RESULTS = {
       "winner": null,
       "homeTeam": "Argentina",
       "awayTeam": "Egypt",
-      "homeScore": "0",
-      "awayScore": "0",
+      "homeScore": null,
+      "awayScore": null,
       "homeScoreExtra": null,
       "awayScoreExtra": null,
       "decidedBy": "NS",
-      "sportsDbEventId": "760509",
-      "source": "ESPN",
-      "completedAt": "2026-07-07T16:00Z",
-      "kickoffAt": "2026-07-07T16:00Z"
+      "sportsDbEventId": "2513670",
+      "source": "TheSportsDB",
+      "completedAt": "2026-07-07",
+      "kickoffAt": "2026-07-07T16:00:00"
     },
     "R16-8": {
       "status": "scheduled",
@@ -432,15 +432,15 @@ window.WC2026_RESULTS = {
       "winner": null,
       "homeTeam": "Switzerland",
       "awayTeam": "Colombia",
-      "homeScore": "0",
-      "awayScore": "0",
+      "homeScore": null,
+      "awayScore": null,
       "homeScoreExtra": null,
       "awayScoreExtra": null,
       "decidedBy": "NS",
-      "sportsDbEventId": "760508",
-      "source": "ESPN",
-      "completedAt": "2026-07-07T20:00Z",
-      "kickoffAt": "2026-07-07T20:00Z"
+      "sportsDbEventId": "2513671",
+      "source": "TheSportsDB",
+      "completedAt": "2026-07-07",
+      "kickoffAt": "2026-07-07T20:00:00"
     },
     "QF-1": {
       "status": "scheduled",
