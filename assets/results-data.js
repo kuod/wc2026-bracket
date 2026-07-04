@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-04T18:17:29Z",
+  "generatedAt": "2026-07-04T19:06:38Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -317,22 +317,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-04T21:00:00"
     },
     "R16-2": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R16",
       "teamA": "Canada",
       "teamB": "Morocco",
-      "winner": null,
+      "winner": "Morocco",
       "homeTeam": "Canada",
       "awayTeam": "Morocco",
       "homeScore": "0",
-      "awayScore": "0",
+      "awayScore": "3",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "HT",
-      "sportsDbEventId": "2505183",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-04",
-      "kickoffAt": "2026-07-04T17:00:00"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760502",
+      "source": "ESPN",
+      "completedAt": "2026-07-04T17:00Z",
+      "kickoffAt": "2026-07-04T17:00Z"
     },
     "R16-3": {
       "status": "scheduled",
@@ -446,7 +446,7 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "QF",
       "teamA": null,
-      "teamB": null,
+      "teamB": "Morocco",
       "winner": null
     },
     "QF-2": {
@@ -505,9 +505,9 @@ window.WC2026_RESULTS = {
       "eventId": "760510",
       "source": "ESPN",
       "home": "Round of 16 1 Winner",
-      "away": "Round of 16 2 Winner",
+      "away": "Morocco",
       "resolvedHome": null,
-      "resolvedAway": null
+      "resolvedAway": "Morocco"
     },
     {
       "eventId": "760511",
