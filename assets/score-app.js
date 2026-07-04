@@ -691,10 +691,42 @@ function computeConsensus(board) {
       // two teams the bracket delivers here). Once the matchup is known we narrow
       // the pool's pick to it; before that we still surface the raw favorite.
       const pick = consensusPick(m.id, board);
-      let team = pick ? pick.team : null;
-      if (team && teamA && teamB && team !== teamA && team !== teamB) team = null;
-      projected[m.id] = team ? { team, share: pick.share } : null;
-      winnerOf[m.id] = team || null;
+      let cascadeTeam = pick ? pick.team : null;
+      if (cascadeTeam && teamA && teamB && cascadeTeam !== teamA && cascadeTeam !== teamB) cascadeTeam = null;
+
+      // A matchup is LOCKED once both participants are real (feeders decided, or
+      // R32's literal pair). Locked → an honest HEAD-TO-HEAD split between the two
+      // real teams that sums to 100%. Unlocked (a feeder still open, so the field of
+      // who even arrives here is scattered) → each shown team's share of the WHOLE
+      // field, which needn't sum to 100. shareByTeam carries the per-side display
+      // fraction the card renders; favTeam gets the tint.
+      const aReal = round.key === "R32" || !!(m.from && actualResults[m.from[0]]);
+      const bReal = round.key === "R32" || !!(m.from && actualResults[m.from[1]]);
+      const locked = aReal && bReal && !!teamA && !!teamB;
+      let shareByTeam = null, favTeam = null;
+      if (locked) {
+        const hh = headToHeadShare(m.id, teamA, teamB, true, board);
+        if (hh) {
+          // Store the ROUNDED pair as fractions so the card's Math.round round-trips
+          // to integers that still total 100 (pctA + (100−pctA)).
+          shareByTeam = { [teamA]: hh.pctA / 100, [teamB]: hh.pctB / 100 };
+          // Pick the leader from the RAW weights, not the rounded pcts: a 49.6/50.4
+          // split rounds to 50/50, and picking off the rounded pair would tint (and
+          // cascade via winnerOf) the wrong side on that tie. Counts break it right.
+          favTeam = hh.countA >= hh.countB ? teamA : teamB;
+        }
+      } else {
+        shareByTeam = {};
+        if (teamA) shareByTeam[teamA] = weightedShare(m.id, teamA, board);
+        if (teamB) shareByTeam[teamB] = weightedShare(m.id, teamB, board);
+        favTeam = cascadeTeam;   // narrowed favorite (may be null on a scattered field)
+      }
+      projected[m.id] = (favTeam || Object.keys(shareByTeam || {}).length)
+        ? { team: favTeam, locked, shareByTeam } : null;
+      // Cascade the head-to-head leader on a locked match (always defined, so the
+      // projection never dead-ends when the crowd's raw favorite was eliminated);
+      // otherwise the narrowed favorite as before.
+      winnerOf[m.id] = (locked ? favTeam : cascadeTeam) || null;
     }
   }
   return { projected, winnerOf };
@@ -739,10 +771,17 @@ function canvasCard(roundKey, match, pred, consensus) {
     // Late chip: a correct pick submitted AFTER its result was known. A late pick
     // never carries an upset bonus, so 🕒 slots into the same place 🔥 would have.
     const receipt = opts.receipt
-      ? `<span class="pick-receipt" title="Late pick — submitted after the result was known, so it earns crowd-credit (${Math.round((opts.share || 0) * 100)}% of the pool), no upset bonus">🕒</span>` : "";
-    // Share chip on the pool's favored side (e.g. "64%" of score-weighted pool).
-    const share = opts.favored && opts.share != null
-      ? `<span class="proj-share" title="How much of the pool — weighted toward the sharpest brackets — backs this team to win">${Math.round(opts.share * 100)}%</span>` : "";
+      ? `<span class="pick-receipt" title="Late pick — submitted after the result was known, so it earns crowd-credit (${Math.round((opts.share || 0) * 100)}% of the pool), no bold-pick bonus">🕒</span>` : "";
+    // Share chip. BOTH shown sides of an undecided matchup carry one now, so the
+    // reader sees the full split — the favored side keeps the bright chip, the other
+    // side a dimmed one. On a LOCKED matchup (both real participants known) the two
+    // are a head-to-head split that sums to 100%; on an UNLOCKED/projected one they're
+    // each side's share of the whole (scattered) field and needn't sum to 100 — the
+    // tooltip says which, so a number never lies about what it means.
+    const share = opts.share != null
+      ? `<span class="proj-share${opts.favored ? "" : " proj-share-dim"}" title="${opts.locked
+          ? "Head-to-head split of the pool (weighted toward the sharpest brackets) — the two sides add to 100%"
+          : "Share of the pool (weighted toward the sharpest brackets) backing this team — the field is still open, so sides needn't add to 100%"}">${Math.round(opts.share * 100)}%</span>` : "";
     const titleSuffix = opts.projected ? " — pool projection" : (opts.favored ? " — pool favorite" : "");
     // Final scoreline (reality view, decided match only): the team's goals, and
     // — when the match went to penalties — its shootout tally in parentheses, so
@@ -770,13 +809,15 @@ function canvasCard(roundKey, match, pred, consensus) {
     const [teamA, teamB] = actualMatchTeams(roundKey, match);
     const proj = consensus ? consensus.projected[match.id] : null;
     const favTeam = proj ? proj.team : null;
+    const shareByTeam = proj ? proj.shareByTeam : null;   // per-side display fraction
     const sc = matchScore(match.id);   // per-team scoreline, or null
     const slot = (real, side) => {
       if (winner) return row(real, { win: winner === real, score: sc && sc[real] });  // decided
       const team = real || projFeederTeam(roundKey, match, side, consensus);
       if (!team) return row(null);                              // genuine TBD
       const favored = !!favTeam && team === favTeam;
-      return row(team, { projected: !real, favored, share: proj && proj.share });
+      const share = shareByTeam && shareByTeam[team] != null ? shareByTeam[team] : null;
+      return row(team, { projected: !real, favored, share, locked: proj && proj.locked });
     };
     return `<div class="match-card">
       <div class="team-stack">
@@ -864,7 +905,7 @@ function roundStrip(subs) {
     const s = subs[r.key] || { correct: 0, total: r.matches.length, decided: 0, bonus: 0, lateCount: 0 };
     const live = s.decided > 0;
     const fire = s.bonus > 0
-      ? `<span class="rc-fire" title="Upset heat earned this round">🔥+${s.bonus}</span>` : "";
+      ? `<span class="rc-fire" title="Bold-call heat earned this round">🔥+${s.bonus}</span>` : "";
     // Late glyph: some of this round's correct picks were submitted late and
     // scored on crowd-credit. Muted so it flags the fact without shouting.
     const receipt = s.lateCount > 0
@@ -894,7 +935,7 @@ function renderCanvasHead(pred, hasConsensus) {
   if (note) {
     const show = !pred && hasConsensus;
     note.hidden = !show;
-    if (show) note.innerHTML = `<b>Dashed</b> = projected winners for spots not set yet, leaning toward the best pickers so far<br><b>%</b> = how much of the pool backs that team`;
+    if (show) note.innerHTML = `<b>Dashed</b> = projected winners for spots not set yet, leaning toward the best pickers so far<br><b>%</b> = how much of the pool backs each side (a set matchup's two sides add to 100%; an open one shows each side's share of the field)`;
   }
 
   if (pred) {
@@ -1030,7 +1071,7 @@ function renderLockedGroup() {
          `<ol class="lb-list lb-locked-list">${items}</ol>`;
 }
 
-// ---- Pool stats (6 cards) ---------------------------------------------------
+// ---- Pool stats (7 cards) ---------------------------------------------------
 
 function tally(matchId) {
   // Returns [{team, count, share}] sorted desc for one match across all picks.
@@ -1049,6 +1090,65 @@ function tally(matchId) {
     .sort((a, b) => b.count - a.count || a.team.localeCompare(b.team));
 }
 
+// Head-to-head split between exactly TWO teams for one match, each as an integer %
+// that sums to EXACTLY 100. Only honest when the two teams are the match's real
+// (locked) participants — the denominator is JUST these two teams' backers, so
+// callers must never use it on a scattered/unlocked field (that would silently drop
+// everyone who backed a now-impossible team). `weighted` uses each predictor's
+// (score + 1) weight — the projection's tilt toward sharper brackets; false uses raw
+// pick counts (the divisive card's plain "how split is the crowd"). Rounds A and
+// derives B = 100 − A, so rounding can never make the pair total 99 or 101. Returns
+// null when nobody backed either team. Carries raw counts for the value cells.
+function headToHeadShare(matchId, teamA, teamB, weighted, board) {
+  const rows = weighted ? board : predictions;
+  let wa = 0, wb = 0;
+  for (const p of rows) {
+    const g = p.picks[matchId];
+    const w = weighted ? (p.score || 0) + 1 : 1;
+    if (g === teamA) wa += w;
+    else if (g === teamB) wb += w;
+  }
+  const total = wa + wb;
+  if (total === 0) return null;
+  const pctA = Math.round((wa / total) * 100);
+  return { pctA, pctB: 100 - pctA, countA: wa, countB: wb };
+}
+
+// Score-weighted share of ONE team among everyone who picked `matchId` — the
+// denominator is the WHOLE field for that match (every team), so two teams' shares
+// need NOT sum to 100. Use for UNLOCKED projected slots where the field is scattered
+// (e.g. the Final before its finalists are known) and forcing a two-way split would
+// misrepresent it. Mirrors consensusPick's (score + 1) weighting.
+function weightedShare(matchId, team, board) {
+  let w = 0, total = 0;
+  for (const p of board) {
+    const g = p.picks[matchId];
+    if (!g) continue;
+    const pw = (p.score || 0) + 1;
+    if (g === team) w += pw;
+    total += pw;
+  }
+  return total ? w / total : 0;
+}
+
+// Card taxonomy — the invariant is that every card stays FILLED and FREEZES on its
+// last meaningful state when its OWN input source is exhausted; no card blanks
+// mid-tournament, and placeholders show ONLY before any data exists at all. Each
+// card below is tagged with its kind so this stays legible when editing:
+//   [ROSTER]  — changes only when a bracket is submitted/edited; frozen once
+//               submissions close. Depends on the pool of entries, not the games.
+//   [RESULTS] — changes only when a real match result lands; complete at the Final.
+//   [HYBRID]  — depends on BOTH the entries and how far the tournament has advanced;
+//               transitions to a RETROSPECTIVE view at the close so it never blanks.
+//   [MIXED]   — distinct roster-fed and results-fed parts within one card.
+// Map:
+//   1 Title backers ............ [ROSTER]
+//   2 Most-predicted Final ..... [ROSTER]
+//   3 Most divisive ............ [HYBRID]   (retro: tightest DECIDED split at the close)
+//   4 What the fish?! .......... [RESULTS]
+//   5 Lone wolves .............. [HYBRID]   (retro: boldest solos that ran furthest)
+//   6 Pool at a glance ......... [MIXED]    (Brackets-in/Chalk = roster; the rest = results)
+//   7 Title picks by continent . [MIXED]    (Predicted bars = roster; Likely bars = results)
 function renderPoolStats() {
   const root = document.getElementById("pool-stats-root");
   if (!root) return;
@@ -1070,9 +1170,9 @@ function renderPoolStats() {
   const survivors = survivingTeams();
   const scoreByPredictor = new Map(board.map(p => [p.predictor, p.score]));
 
-  // 1) Champion distribution (FINAL pick). Only teams with genuine pool backing
-  //    (2+ entries) earn a bar — a lone champion pick overstates "backing" and is
-  //    already surfaced by the Lone wolves card below.
+  // 1) Champion distribution (FINAL pick) [ROSTER]. Only teams with genuine pool
+  //    backing (2+ entries) earn a bar — a lone champion pick overstates "backing"
+  //    and is already surfaced by the Lone wolves card below.
   const champs = tally("FINAL");
   const backed = champs.filter(c => c.count > 1);
   const champBars = champs.length === 0
@@ -1081,8 +1181,8 @@ function renderPoolStats() {
       ? `<p class="muted">No team has more than one backer yet.</p>`
       : backed.slice(0, 5).map(c => statBar(c.team, c.count, c.share)).join("");
 
-  // 2) Predicted Final matchups — tally every unordered pair of FINAL feeders
-  //    across the pool and surface the top 4 distinct matchups with counts.
+  // 2) Predicted Final matchups [ROSTER] — tally every unordered pair of FINAL
+  //    feeders across the pool and surface the top 4 distinct matchups with counts.
   const finalMatch = ROUNDS.find(r => r.key === "FINAL").matches[0];
   const finalPairs = {};
   for (const p of predictions) {
@@ -1107,33 +1207,70 @@ function renderPoolStats() {
       ).join("")
     : `<p class="muted">Not enough finalist picks yet.</p>`;
 
-  // 3) Most divisive — the current round's UPCOMING match closest to an even split.
-  //    Skips matches already decided so the card always previews a match still to be
-  //    played; since curRound is the earliest-incomplete round, once it finishes
-  //    currentRound() advances and this auto-populates the next round's showdown.
-  let divisive = null;
-  for (const m of curRoundMatches) {
-    if (actualResults[m.id]) continue;   // decided already — not an upcoming showdown
-    const t = tally(m.id);
-    if (t.length < 2) continue;
-    const topShare = t[0].share;
-    if (!divisive || topShare < divisive.topShare) divisive = { match: m, t, topShare };
+  // 3) Most divisive [HYBRID] — the crowd's most even split on a REAL matchup of the
+  //    round in play. Measured head-to-head on the two teams ACTUALLY playing (resolved
+  //    from the now-decided feeders — curRound is the earliest-incomplete round, so its
+  //    feeders are settled), so the split we RANK on is the split we SHOW: a "divisive"
+  //    match always looks near-even, and the two bars sum to exactly 100%. For R32 this
+  //    matches the old behaviour (only two teams exist); for R16+ it stops leaking
+  //    pickers of now-eliminated teams into the denominator.
+  //    Changes when: a bracket is submitted/edited OR the round in play advances.
+  //    Forward by default (previews UNDECIDED matches); when none remain (the round —
+  //    ultimately the Final — is fully played) it transitions to a RETROSPECTIVE of
+  //    that round's tightest DECIDED split so it never blanks at the close. Placeholder
+  //    only before any matchup is knowable.
+  const divisiveSplit = (m) => {
+    const [a, b] = actualMatchTeams(curRound, m);
+    if (!a || !b) return null;
+    const hh = headToHeadShare(m.id, a, b, false, board);
+    if (!hh) return null;
+    return { match: m, a, b, hh, evenness: Math.max(hh.pctA, hh.pctB) };  // closer to 50 = more divisive
+  };
+  let divisive = null, divisiveRetro = false;
+  for (const m of curRoundMatches) {                       // forward: undecided matchups
+    if (actualResults[m.id]) continue;
+    const d = divisiveSplit(m);
+    if (d && (!divisive || d.evenness < divisive.evenness)) divisive = d;
   }
-  const divisiveHtml = divisive
-    ? `<div class="stat-sub muted">${divisive.match.id}</div>` +
-      divisive.t.slice(0, 2).map(c => statBar(c.team, c.count, c.share)).join("")
-    : `<p class="muted">No upcoming matches to split on yet.</p>`;
+  if (!divisive) {                                         // retrospective: tightest decided split
+    for (const m of curRoundMatches) {
+      if (!actualResults[m.id]) continue;
+      const d = divisiveSplit(m);
+      if (d && (!divisive || d.evenness < divisive.evenness)) divisive = d;
+    }
+    divisiveRetro = !!divisive;
+  }
+  const divisiveHtml = (() => {
+    if (!divisive) return `<p class="muted">No matchups to split on yet.</p>`;
+    const { hh } = divisive;
+    // More-backed side first, like every other bar list; pcts still total 100.
+    const sides = [
+      { team: divisive.a, count: hh.countA, pct: hh.pctA },
+      { team: divisive.b, count: hh.countB, pct: hh.pctB },
+    ].sort((x, y) => y.count - x.count || x.team.localeCompare(y.team));
+    return `<div class="stat-sub muted">${divisive.match.id}${divisiveRetro ? " · final" : ""}</div>` +
+      sides.map(s => statBar(s.team, s.count, s.pct / 100)).join("");
+  })();
 
-  // 4) Most Shocking — the tournament's biggest stunners SO FAR, across every decided
+  // 4) What the fish?! — the tournament's biggest stunners SO FAR, across every decided
   //    round (not just the current one), so past giant-killings stay on the wall.
-  //    Two independent notions of "shock", summed:
+  //    THREE independent notions of "shock", summed:
   //      (a) FIFA-rank upset — a weaker side (higher rank number) beat a stronger one;
-  //          the component is the ranking gap.
+  //          the component is the ranking gap. Shown even when the pool called it
+  //          right and it scored no heat — a giant-killing is a giant-killing.
   //      (b) Pool upset — the crowd's favorite between the TWO TEAMS THAT ACTUALLY
   //          PLAYED lost (head-to-head, so later-round picks for teams that never
   //          reached the slot don't distort it); the component is the head-to-head
   //          margin the loser was favored by, in points.
-  //    A result qualifies if EITHER axis fires; the summed shock ranks them.
+  //      (c) Rarity heat — the winner earned scoring 🔥 (few brackets backed them),
+  //          read from the SAME upsetHeat() the scorer uses so the card can't drift
+  //          from the points. This is what puts a chalk-but-rarely-picked winner
+  //          (e.g. a rank-6 side almost nobody backed) on the wall even when (a)/(b)
+  //          stay quiet — the case that made "11k awarded, nothing on the card" feel
+  //          contradictory. Scaled by HEAT_SHOCK_WEIGHT so a lone rarity still earns
+  //          ≥1 flame without ever outranking a true giant-killing.
+  //    A result qualifies if ANY axis fires; the summed shock ranks them.
+  const HEAT_SHOCK_WEIGHT = 5;   // heat is 1–9; ×5 lets a lone rarity clear one flame without burying a real rank upset
   const allUpsets = [];
   for (const round of ROUNDS) {
     for (const m of round.matches) {
@@ -1148,8 +1285,9 @@ function renderPoolStats() {
       const rankComponent = Math.max(0, rankGap);
 
       // (b) Head-to-head pool lean between the two actual participants.
+      const dist = tally(m.id);
       const counts = {};
-      for (const c of tally(m.id)) counts[c.team] = c.count;
+      for (const c of dist) counts[c.team] = c.count;
       const winCount = counts[winner] || 0;
       const loseCount = counts[loser] || 0;
       const h2h = winCount + loseCount;
@@ -1157,9 +1295,17 @@ function renderPoolStats() {
       const isPoolUpset = loseCount > winCount;       // the pool's pick lost
       const poolComponent = isPoolUpset ? Math.round((loseShare - (h2h ? winCount / h2h : 0)) * 100) : 0;
 
-      if (rankComponent === 0 && !isPoolUpset) continue;   // not shocking on either axis
+      // (c) Rarity heat — the SAME per-match heat the scorer awards (0 when too few
+      //     brackets picked the match, or the winner was near-consensus). winnerShare
+      //     is that winner's share among ALL pickers of the match, for the tooltip.
+      const heat = upsetHeat(m.id, winner, round.key);
+      const winnerEntry = dist.find(d => d.team === winner);
+      const winnerShare = winnerEntry ? winnerEntry.share : 0;
+
+      if (rankComponent === 0 && !isPoolUpset && heat === 0) continue;   // not shocking on any axis
       allUpsets.push({ winner, loser, matchId: m.id, roundKey: round.key, rankGap,
-                       isPoolUpset, loseShare, shock: rankComponent + poolComponent });
+                       isPoolUpset, loseShare, heat, winnerShare,
+                       shock: rankComponent + poolComponent + heat * HEAT_SHOCK_WEIGHT });
     }
   }
   allUpsets.sort((a, b) => b.shock - a.shock || a.matchId.localeCompare(b.matchId));
@@ -1181,14 +1327,16 @@ function renderPoolStats() {
   const upsets = [...picked.values()].sort((a, b) => b.shock - a.shock || a.matchId.localeCompare(b.matchId));
   const upsetHtml = upsets.length
     ? upsets.slice(0, 6).map(u => {
-        // Fire scales with the combined shock: every upset earns one 🔥, +1 per ~20
-        // shock points (rank spots + pool margin), capped at 5 so it can't overflow.
+        // Fire scales with the combined shock: every surprise earns one 🔥, +1 per ~20
+        // shock points (rank spots + pool margin + weighted rarity), capped at 5 so it
+        // can't overflow.
         const fire = "🔥".repeat(Math.min(5, 1 + Math.floor(u.shock / 20)));
         // Tooltip spells out whichever axes fired.
         const bits = [];
         if (u.rankGap > 0) bits.push(`+${u.rankGap} FIFA ranking spots`);
         if (u.isPoolUpset) bits.push(`${Math.round(u.loseShare * 100)}% of head-to-head picks backed ${shortCode(u.loser)}`);
-        const upsetTitle = `Upset: ${bits.join(" · ")}`;
+        if (u.heat > 0) bits.push(`only ${Math.round(u.winnerShare * 100)}% of brackets backed ${shortCode(u.winner)}`);
+        const upsetTitle = `Surprise: ${bits.join(" · ")}`;
         // Playful verb, keyed to the match so it stays put across re-renders.
         const verb = pickFor(UPSET_VERBS, u.matchId);
         return `<div class="stat-line"><span>${flag(u.winner)} <strong title="${escapeAttr(u.winner)}">${escapeHtml(shortCode(u.winner))}</strong> ${verb} ${flag(u.loser)} <strong title="${escapeAttr(u.loser)}">${escapeHtml(shortCode(u.loser))}</strong> <span class="upset-fire" title="${escapeAttr(upsetTitle)}">${fire}</span></span><span class="muted">${u.matchId}</span></div>`;
@@ -1236,17 +1384,65 @@ function renderPoolStats() {
                       || rankOf(b.team) - rankOf(a.team)
                       || a.roundIdx - b.roundIdx
                       || a.who.localeCompare(b.who));
+
+  // RETROSPECTIVE fallback: once every solo's team has been eliminated (deep into
+  // the tournament, ultimately the close), the live list above is empty — but the
+  // card should FREEZE on the boldest calls that ran furthest, not blank out. We
+  // re-gather solos WITHOUT the survivors gate and rank by how deep each team
+  // actually got (teamDepth), then boldness, then backer score. Placeholder is thus
+  // reserved for the genuine start-state (a lockstep pool with no solo picks at all).
+  let loneRetro = false;
+  if (lone.length === 0) {
+    // How far each team advanced: the furthest round index at which it was a real
+    // participant (R32 = 0 … Final = 4). Walk decided matches; a match's winner
+    // reaches the next round, so its depth is at least roundIdx + 1.
+    const teamDepth = new Map();
+    ROUND_OF_32.forEach(m => { teamDepth.set(m.teamA, 0); teamDepth.set(m.teamB, 0); });
+    ROUNDS.forEach((round, ri) => {
+      for (const m of round.matches) {
+        const winner = actualResults[m.id];
+        if (!winner) continue;
+        teamDepth.set(winner, Math.max(teamDepth.get(winner) ?? 0, ri + 1));
+      }
+    });
+    const soloBest = new Map();   // predictor → their furthest-running solo
+    for (let ri = 0; ri < ROUNDS.length; ri++) {
+      for (const m of ROUNDS[ri].matches) {
+        for (const s of tally(m.id)) {
+          if (s.count !== 1) continue;
+          const who = predictions.find(p => p.picks[m.id] === s.team);
+          if (!who) continue;
+          const depth = teamDepth.get(s.team) ?? 0;
+          const cur = soloBest.get(who.predictor);
+          // Keep the deepest-running solo; ties to the bolder team, then lower match id.
+          const better = !cur || depth > cur.depth
+            || (depth === cur.depth && (rankOf(s.team) > rankOf(cur.team)
+                || (rankOf(s.team) === rankOf(cur.team) && m.id.localeCompare(cur.matchId) < 0)));
+          if (better) soloBest.set(who.predictor, { who: who.predictor, team: s.team, matchId: m.id, roundIdx: ri, depth });
+        }
+      }
+    }
+    lone.push(...soloBest.values());
+    lone.sort((a, b) => b.depth - a.depth
+                        || (scoreByPredictor.get(b.who) ?? 0) - (scoreByPredictor.get(a.who) ?? 0)
+                        || rankOf(b.team) - rankOf(a.team)
+                        || a.who.localeCompare(b.who));
+    loneRetro = lone.length > 0;
+  }
+
   const loneHtml = lone.length
-    ? lone.slice(0, 6).map(c => {
+    ? (loneRetro ? `<div class="stat-sub muted">boldest solo calls that ran furthest</div>` : "") +
+      lone.slice(0, 6).map(c => {
         // Playful phrasing, keyed to the person so their line stays put across re-renders.
         const phrase = pickFor(LONE_PHRASES, c.who);
         return `<div class="stat-line"><span>${escapeHtml(c.who)} ${phrase} ${flag(c.team)} <strong title="${escapeAttr(c.team)}">${escapeHtml(shortCode(c.team))}</strong></span><span class="muted">${c.matchId}</span></div>`;
       }).join("")
     : `<p class="muted">No live solo picks yet — the pool is in lockstep.</p>`;
 
-  // 6) Pool at a glance + "chalk score" (how herd-like the pool is: average
-  //    top-pick share across all matches that have any picks). Uses the hoisted
-  //    `board` from the top of the function.
+  // 6) Pool at a glance + "chalk score" [MIXED] (how herd-like the pool is: average
+  //    top-pick share across all matches that have any picks). Brackets-in and Chalk
+  //    are ROSTER (frozen at close); Matches-decided/Average/Median/Top are RESULTS
+  //    (grow as games land). Uses the hoisted `board` from the top of the function.
   const scores = board.map(p => p.score).sort((a, b) => a - b);
   const avg = scores.length ? (scores.reduce((s, x) => s + x, 0) / scores.length) : 0;
   const median = scores.length
@@ -1262,11 +1458,11 @@ function renderPoolStats() {
   }
   const chalk = shareN ? Math.round((shareSum / shareN) * 100) : 0;
 
-  // 7) Title picks by continent — TWO bars per continent. "Predicted" is the
-  //    share of the pool's champion (FINAL) picks landing in that continent;
-  //    "Likely" is the share of teams still alive (not yet eliminated) there,
-  //    which moves as results come in. The faint world map floats the Predicted
-  //    shares as chips above the split-bar list.
+  // 7) Title picks by continent [MIXED] — TWO bars per continent. "Predicted"
+  //    (ROSTER) is the share of the pool's champion (FINAL) picks landing in that
+  //    continent; "Likely" (RESULTS) is the share of teams still alive (not yet
+  //    eliminated) there, which moves as results come in. The faint world map floats
+  //    the Predicted shares as chips above the split-bar list.
   const contCounts = {};
   for (const p of predictions) {
     const c = continentOf(p.picks["FINAL"]);
@@ -1351,7 +1547,7 @@ function renderPoolStats() {
         ${divisiveHtml}
       </div>
       <div class="stat-card">
-        <h3>David ‹vs› Goliath</h3>
+        <h3>What the fish?!</h3>
         ${upsetHtml}
       </div>
       <div class="stat-card">

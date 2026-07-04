@@ -561,6 +561,15 @@ img.flag {
   opacity: 0.85;
 }
 
+/* The non-favored side of a projected matchup now carries its own share too, so
+   the full split reads at a glance. Dimmed + lighter weight so it sits behind the
+   favored side's bright gold chip rather than competing with it. */
+.team-row .proj-share.proj-share-dim {
+  color: var(--chalk);
+  font-weight: 500;
+  opacity: 0.5;
+}
+
 /* The one-line legend that explains the dashed marks, sat UNDER the bracket as a
    caption. Centred and quiet so it reads as a footnote to the wallchart, not a
    header. [hidden] (set by score-app.js off the live view) keeps it out of flow. */
