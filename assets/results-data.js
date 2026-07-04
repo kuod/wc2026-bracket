@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-04T00:11:08Z",
+  "generatedAt": "2026-07-04T00:46:24Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -263,22 +263,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-03T18:00:00"
     },
     "R32-15": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R32",
       "teamA": "Argentina",
       "teamB": "Cape Verde",
-      "winner": null,
+      "winner": "Argentina",
       "homeTeam": "Argentina",
       "awayTeam": "Cape Verde",
-      "homeScore": "1",
-      "awayScore": "1",
+      "homeScore": "3",
+      "awayScore": "2",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "2H",
-      "sportsDbEventId": "2502849",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-03",
-      "kickoffAt": "2026-07-03T22:00:00"
+      "decidedBy": "AET",
+      "sportsDbEventId": "760500",
+      "source": "ESPN",
+      "completedAt": "2026-07-03T22:00Z",
+      "kickoffAt": "2026-07-03T22:00Z"
     },
     "R32-16": {
       "status": "scheduled",
@@ -409,9 +409,20 @@ window.WC2026_RESULTS = {
     "R16-7": {
       "status": "scheduled",
       "round": "R16",
-      "teamA": null,
+      "teamA": "Argentina",
       "teamB": "Egypt",
-      "winner": null
+      "winner": null,
+      "homeTeam": "Argentina",
+      "awayTeam": "Egypt",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760509",
+      "source": "ESPN",
+      "completedAt": "2026-07-07T16:00Z",
+      "kickoffAt": "2026-07-07T16:00Z"
     },
     "R16-8": {
       "status": "scheduled",
@@ -478,14 +489,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760509",
-      "source": "ESPN",
-      "home": "Round of 32 14 Winner",
-      "away": "Egypt",
-      "resolvedHome": null,
-      "resolvedAway": "Egypt"
     },
     {
       "eventId": "760508",
