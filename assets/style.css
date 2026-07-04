@@ -266,7 +266,7 @@ img.flag {
 .topbar-entry .progress-bar { font-size: 11px; }
 /* Let the completion track flex to fill the row so the bar spans the full name width. */
 .topbar-entry .progress-track { flex: 1; width: auto; }
-.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 /* Slim the buttons to the pill/chip scale IN THE TOP BAR only (the global .btn stays
    chunky for the toast + bracket controls). */
 .topbar .btn { padding: 9px 16px; font-size: 12px; }
@@ -636,15 +636,6 @@ input[type="text"]:focus, input[type="email"]:focus, textarea:focus, select:focu
   border-color: var(--line-strong);
 }
 .btn-ghost:hover { border-color: var(--gold-bright); color: var(--gold-bright); }
-
-/* "Submissions closed" hint beside the (disabled) Submit button, past the R32 cutoff. */
-.submit-hint {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.03em;
-  color: rgba(246,243,234,0.6);
-  white-space: nowrap;
-}
 
 .btn-row {
   display: flex;
@@ -1177,6 +1168,12 @@ body.on-leaderboard { overflow: auto; }
      phone "Desktop site" mode hit: it ignores the 1024 viewport meta and forces
      ~980px, right in the band where the row overflowed. nowrap forces the shrink. */
   .topbar { flex-wrap: nowrap; }
+  /* Pin the nav pills as fixed chrome so ALL shrink pressure lands on the order-2
+     block (the predictor's name+progress+actions, or the leaderboard's scoring-key
+     chips) — both are built to wrap INTERNALLY. Without this, nowrap shrinks the
+     tools column too (default flex-shrink:1), squeezing it below the two pills'
+     width so Predict/Leaderboard wrap onto a second line. */
+  .topbar .topbar-tools { flex-shrink: 0; }
 
   /* Desktop: a tall canvas like the predictions wallchart → all 16 R32 rows
      sit roomy with elbow connectors. */

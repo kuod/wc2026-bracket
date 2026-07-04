@@ -582,6 +582,14 @@ function scorePrediction(pred) {
   return { score, breakdown, roundSubtotals };
 }
 
+// Earliest submission first among ties. timestamp = trusted server write time,
+// submittedAt = client fallback (both ISO-8601). Infinity sends missing/bad
+// stamps to the back so a blank never jumps ahead of a real submission.
+function submittedTs(p) {
+  const ts = Date.parse(p.timestamp || p.submittedAt);
+  return Number.isFinite(ts) ? ts : Infinity;
+}
+
 function computeLeaderboard() {
   const board = predictions
     .map(pred => {
@@ -591,13 +599,15 @@ function computeLeaderboard() {
       return { ...pred, score, breakdown, roundSubtotals, correctCount, decidedCount,
                champion: pred.picks["FINAL"] || null };
     })
-    .sort((a, b) => b.score - a.score || b.correctCount - a.correctCount
+    .sort((a, b) => b.score - a.score
+                    || b.correctCount - a.correctCount
+                    || submittedTs(a) - submittedTs(b)
                     || a.predictor.localeCompare(b.predictor));
 
   // Dense ranking by score: everyone on the same points shares one rank, and the
   // next distinct score takes the next consecutive number (7 tied on 1pt → all
-  // rank 1, the next group is rank 2). correctCount/name still order people
-  // *within* a tied group, but never split the shared rank.
+  // rank 1, the next group is rank 2). correctCount, then earliest submission,
+  // then name order people *within* a tied group, but never split the shared rank.
   let rank = 0, prevScore = null;
   for (const p of board) {
     if (p.score !== prevScore) { rank += 1; prevScore = p.score; }
@@ -995,7 +1005,8 @@ function renderLockedGroup() {
   if (!lockedPredictions.length) return "";
   const items = lockedPredictions
     .slice()
-    .sort((a, b) => a.predictor.localeCompare(b.predictor))
+    .sort((a, b) => submittedTs(a) - submittedTs(b)
+                    || a.predictor.localeCompare(b.predictor))
     .map(p => {
       const submitted = formatSubmitted(p.timestamp || p.submittedAt);
       const submittedEl = submitted
