@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-04T22:15:55Z",
+  "generatedAt": "2026-07-04T23:07:02Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -299,22 +299,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-04T01:30Z"
     },
     "R16-1": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R16",
       "teamA": "Paraguay",
       "teamB": "France",
-      "winner": null,
+      "winner": "France",
       "homeTeam": "Paraguay",
       "awayTeam": "France",
       "homeScore": "0",
-      "awayScore": "0",
+      "awayScore": "1",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "HT",
-      "sportsDbEventId": "2505624",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-04",
-      "kickoffAt": "2026-07-04T21:00:00"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760503",
+      "source": "ESPN",
+      "completedAt": "2026-07-04T21:00Z",
+      "kickoffAt": "2026-07-04T21:00Z"
     },
     "R16-2": {
       "status": "complete",
@@ -445,9 +445,20 @@ window.WC2026_RESULTS = {
     "QF-1": {
       "status": "scheduled",
       "round": "QF",
-      "teamA": null,
+      "teamA": "France",
       "teamB": "Morocco",
-      "winner": null
+      "winner": null,
+      "homeTeam": "France",
+      "awayTeam": "Morocco",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760510",
+      "source": "ESPN",
+      "completedAt": "2026-07-09T20:00Z",
+      "kickoffAt": "2026-07-09T20:00Z"
     },
     "QF-2": {
       "status": "scheduled",
@@ -500,14 +511,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760510",
-      "source": "ESPN",
-      "home": "Round of 16 1 Winner",
-      "away": "Morocco",
-      "resolvedHome": null,
-      "resolvedAway": "Morocco"
     },
     {
       "eventId": "760511",
