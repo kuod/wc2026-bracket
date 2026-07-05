@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-05T21:11:16Z",
+  "generatedAt": "2026-07-05T22:05:50Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -371,22 +371,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-07T00:00Z"
     },
     "R16-5": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R16",
       "teamA": "Brazil",
       "teamB": "Norway",
-      "winner": null,
+      "winner": "Norway",
       "homeTeam": "Brazil",
       "awayTeam": "Norway",
-      "homeScore": "0",
-      "awayScore": "0",
+      "homeScore": "1",
+      "awayScore": "2",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "1H",
-      "sportsDbEventId": "2505462",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-05",
-      "kickoffAt": "2026-07-05T20:00:00"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760504",
+      "source": "ESPN",
+      "completedAt": "2026-07-05T20:00Z",
+      "kickoffAt": "2026-07-05T20:00Z"
     },
     "R16-6": {
       "status": "scheduled",
@@ -470,7 +470,7 @@ window.WC2026_RESULTS = {
     "QF-3": {
       "status": "scheduled",
       "round": "QF",
-      "teamA": null,
+      "teamA": "Norway",
       "teamB": null,
       "winner": null
     },
