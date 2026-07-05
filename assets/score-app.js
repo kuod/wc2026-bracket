@@ -938,7 +938,7 @@ function renderCanvasHead(pred, hasConsensus) {
   if (note) {
     const show = !pred && hasConsensus;
     note.hidden = !show;
-    if (show) note.innerHTML = `<b>Dashed</b> = projected winners for spots not set yet, leaning toward the best pickers so far<br><b>%</b> = how much of the pool backs each side (a set matchup's two sides add to 100%; an open one shows each side's share of the field)`;
+    if (show) note.innerHTML = `<b>Dashed</b> = projected winners for spots not set yet, leaning toward the best pickers so far<br><b>%</b> = how much of the pool backs each side`;
   }
 
   if (pred) {
