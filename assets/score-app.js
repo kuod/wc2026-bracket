@@ -772,13 +772,16 @@ function canvasCard(roundKey, match, pred, consensus) {
     // never carries an upset bonus, so 🕒 slots into the same place 🔥 would have.
     const receipt = opts.receipt
       ? `<span class="pick-receipt" title="Late pick — submitted after the result was known, so it earns crowd-credit (${Math.round((opts.share || 0) * 100)}% of the pool), no bold-pick bonus">🕒</span>` : "";
-    // Share chip. BOTH shown sides of an undecided matchup carry one now, so the
-    // reader sees the full split — the favored side keeps the bright chip, the other
-    // side a dimmed one. On a LOCKED matchup (both real participants known) the two
-    // are a head-to-head split that sums to 100%; on an UNLOCKED/projected one they're
-    // each side's share of the whole (scattered) field and needn't sum to 100 — the
-    // tooltip says which, so a number never lies about what it means.
-    const share = opts.share != null
+    // Share chip. A PROJECTION artifact only (opts.showShare) — the reality view
+    // opts in so BOTH shown sides of an undecided matchup carry one: the reader
+    // sees the full split, the favored side keeping the bright chip and the other a
+    // dimmed one. The person view never opts in (its rows feed a share only for the
+    // 🕒 late tooltip above), so a decided pick's ✓/✗ never sprouts a stray chip.
+    // On a LOCKED matchup (both real participants known) the two are a head-to-head
+    // split that sums to 100%; on an UNLOCKED/projected one they're each side's
+    // share of the whole (scattered) field and needn't sum to 100 — the tooltip
+    // says which, so a number never lies about what it means.
+    const share = opts.showShare && opts.share != null
       ? `<span class="proj-share${opts.favored ? "" : " proj-share-dim"}" title="${opts.locked
           ? "Head-to-head split of the pool (weighted toward the sharpest brackets) — the two sides add to 100%"
           : "Share of the pool (weighted toward the sharpest brackets) backing this team — the field is still open, so sides needn't add to 100%"}">${Math.round(opts.share * 100)}%</span>` : "";
@@ -817,7 +820,7 @@ function canvasCard(roundKey, match, pred, consensus) {
       if (!team) return row(null);                              // genuine TBD
       const favored = !!favTeam && team === favTeam;
       const share = shareByTeam && shareByTeam[team] != null ? shareByTeam[team] : null;
-      return row(team, { projected: !real, favored, share, locked: proj && proj.locked });
+      return row(team, { projected: !real, favored, share, showShare: true, locked: proj && proj.locked });
     };
     return `<div class="match-card">
       <div class="team-stack">
@@ -1298,7 +1301,13 @@ function renderPoolStats() {
       // (c) Rarity heat — the SAME per-match heat the scorer awards (0 when too few
       //     brackets picked the match, or the winner was near-consensus). winnerShare
       //     is that winner's share among ALL pickers of the match, for the tooltip.
-      const heat = upsetHeat(m.id, winner, round.key);
+      //     Gate it on heat that was ACTUALLY awarded: some bracket had a correct,
+      //     on-time pick here that earned bonus>0. Without this gate upsetHeat() would
+      //     fire for a winner NOBODY picked (share 0 → high heat), manufacturing card
+      //     heat with no matching points — the exact drift this card exists to avoid.
+      const heatAwarded = board.some(p => p.breakdown.some(
+        b => b.matchId === m.id && b.state === "correct" && !b.late && b.bonus > 0));
+      const heat = heatAwarded ? upsetHeat(m.id, winner, round.key) : 0;
       const winnerEntry = dist.find(d => d.team === winner);
       const winnerShare = winnerEntry ? winnerEntry.share : 0;
 
@@ -1385,14 +1394,16 @@ function renderPoolStats() {
                       || a.roundIdx - b.roundIdx
                       || a.who.localeCompare(b.who));
 
-  // RETROSPECTIVE fallback: once every solo's team has been eliminated (deep into
-  // the tournament, ultimately the close), the live list above is empty — but the
-  // card should FREEZE on the boldest calls that ran furthest, not blank out. We
-  // re-gather solos WITHOUT the survivors gate and rank by how deep each team
-  // actually got (teamDepth), then boldness, then backer score. Placeholder is thus
-  // reserved for the genuine start-state (a lockstep pool with no solo picks at all).
+  // RETROSPECTIVE fallback: at tournament CLOSE the live list above is empty (every
+  // solo's team is out) — but the card should FREEZE on the boldest calls that ran
+  // furthest, not blank out. We re-gather solos WITHOUT the survivors gate and rank
+  // by how deep each team actually got (teamDepth), then boldness, then backer score.
+  // Gated on genuine completion (every match decided): mid-tournament an empty live
+  // list is a real "pool in lockstep" state and must keep the live placeholder, not
+  // flip early to "ran furthest". Placeholder otherwise covers the start-state too.
+  const tournamentComplete = ROUNDS.every(r => r.matches.every(m => actualResults[m.id]));
   let loneRetro = false;
-  if (lone.length === 0) {
+  if (lone.length === 0 && tournamentComplete) {
     // How far each team advanced: the furthest round index at which it was a real
     // participant (R32 = 0 … Final = 4). Walk decided matches; a match's winner
     // reaches the next round, so its depth is at least roundIdx + 1.
