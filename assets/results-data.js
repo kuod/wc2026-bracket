@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-06T02:58:12Z",
+  "generatedAt": "2026-07-06T03:07:08Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -389,18 +389,18 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-05T20:00:00"
     },
     "R16-6": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "R16",
       "teamA": "Mexico",
       "teamB": "England",
-      "winner": null,
+      "winner": "England",
       "homeTeam": "Mexico",
       "awayTeam": "England",
       "homeScore": "2",
       "awayScore": "3",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "NS",
+      "decidedBy": "FT",
       "sportsDbEventId": "760505",
       "source": "ESPN",
       "completedAt": "2026-07-06T01:00Z",
@@ -471,8 +471,19 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "QF",
       "teamA": "Norway",
-      "teamB": null,
-      "winner": null
+      "teamB": "England",
+      "winner": null,
+      "homeTeam": "Norway",
+      "awayTeam": "England",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760512",
+      "source": "ESPN",
+      "completedAt": "2026-07-11T21:00Z",
+      "kickoffAt": "2026-07-11T21:00Z"
     },
     "QF-4": {
       "status": "scheduled",
@@ -518,14 +529,6 @@ window.WC2026_RESULTS = {
       "home": "Round of 16 5 Winner",
       "away": "Round of 16 6 Winner",
       "resolvedHome": null,
-      "resolvedAway": null
-    },
-    {
-      "eventId": "760512",
-      "source": "ESPN",
-      "home": "Norway",
-      "away": "Round of 16 4 Winner",
-      "resolvedHome": "Norway",
       "resolvedAway": null
     },
     {
