@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-07T21:49:22Z",
+  "generatedAt": "2026-07-07T22:52:45Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -436,7 +436,7 @@ window.WC2026_RESULTS = {
       "awayScore": "0",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "2H",
+      "decidedBy": "P",
       "sportsDbEventId": "2513671",
       "source": "TheSportsDB",
       "completedAt": "2026-07-07",
@@ -533,14 +533,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760513",
-      "source": "ESPN",
-      "home": "Argentina",
-      "away": "Round of 16 8 Winner",
-      "resolvedHome": "Argentina",
-      "resolvedAway": null
     },
     {
       "eventId": "760514",
