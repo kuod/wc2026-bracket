@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-11T23:36:10Z",
+  "generatedAt": "2026-07-11T23:48:48Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -479,22 +479,22 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-10T19:00:00"
     },
     "QF-3": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "QF",
       "teamA": "Norway",
       "teamB": "England",
-      "winner": null,
+      "winner": "England",
       "homeTeam": "Norway",
       "awayTeam": "England",
       "homeScore": "1",
-      "awayScore": "1",
+      "awayScore": "2",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "2H",
-      "sportsDbEventId": "2517651",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-11",
-      "kickoffAt": "2026-07-11T21:00:00"
+      "decidedBy": "AET",
+      "sportsDbEventId": "760512",
+      "source": "ESPN",
+      "completedAt": "2026-07-11T21:00Z",
+      "kickoffAt": "2026-07-11T21:00Z"
     },
     "QF-4": {
       "status": "scheduled",
@@ -535,7 +535,7 @@ window.WC2026_RESULTS = {
     "SF-2": {
       "status": "scheduled",
       "round": "SF",
-      "teamA": null,
+      "teamA": "England",
       "teamB": null,
       "winner": null
     },
@@ -559,9 +559,9 @@ window.WC2026_RESULTS = {
     {
       "eventId": "760515",
       "source": "ESPN",
-      "home": "Quarterfinal 3 Winner",
+      "home": "England",
       "away": "Quarterfinal 4 Winner",
-      "resolvedHome": null,
+      "resolvedHome": "England",
       "resolvedAway": null
     },
     {
