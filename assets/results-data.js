@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-12T02:31:56Z",
+  "generatedAt": "2026-07-12T03:46:31Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -497,18 +497,18 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-11T21:00:00"
     },
     "QF-4": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "QF",
       "teamA": "Argentina",
       "teamB": "Switzerland",
-      "winner": null,
+      "winner": "Argentina",
       "homeTeam": "Argentina",
       "awayTeam": "Switzerland",
-      "homeScore": "1",
+      "homeScore": "3",
       "awayScore": "1",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "NS",
+      "decidedBy": "AET",
       "sportsDbEventId": "760513",
       "source": "ESPN",
       "completedAt": "2026-07-12T01:00Z",
@@ -536,8 +536,19 @@ window.WC2026_RESULTS = {
       "status": "scheduled",
       "round": "SF",
       "teamA": "England",
-      "teamB": null,
-      "winner": null
+      "teamB": "Argentina",
+      "winner": null,
+      "homeTeam": "England",
+      "awayTeam": "Argentina",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760515",
+      "source": "ESPN",
+      "completedAt": "2026-07-15T19:00Z",
+      "kickoffAt": "2026-07-15T19:00Z"
     },
     "FINAL": {
       "status": "scheduled",
@@ -555,14 +566,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760515",
-      "source": "ESPN",
-      "home": "England",
-      "away": "Quarterfinal 4 Winner",
-      "resolvedHome": "England",
-      "resolvedAway": null
     },
     {
       "eventId": "760516",
