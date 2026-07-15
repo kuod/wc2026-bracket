@@ -5,7 +5,7 @@
 // edit assets/results-overrides.js instead (it survives regeneration).
 window.WC2026_RESULTS = {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-15T20:15:49Z",
+  "generatedAt": "2026-07-15T21:05:00Z",
   "source": "ESPN + TheSportsDB",
   "sourceLeagueId": "4429",
   "sourceSeason": "2026",
@@ -533,29 +533,40 @@ window.WC2026_RESULTS = {
       "kickoffAt": "2026-07-14T19:00:00"
     },
     "SF-2": {
-      "status": "scheduled",
+      "status": "complete",
       "round": "SF",
       "teamA": "England",
       "teamB": "Argentina",
-      "winner": null,
+      "winner": "Argentina",
       "homeTeam": "England",
       "awayTeam": "Argentina",
-      "homeScore": "0",
-      "awayScore": "0",
+      "homeScore": "1",
+      "awayScore": "2",
       "homeScoreExtra": null,
       "awayScoreExtra": null,
-      "decidedBy": "2H",
-      "sportsDbEventId": "2528727",
-      "source": "TheSportsDB",
-      "completedAt": "2026-07-15",
-      "kickoffAt": "2026-07-15T19:00:00"
+      "decidedBy": "FT",
+      "sportsDbEventId": "760515",
+      "source": "ESPN",
+      "completedAt": "2026-07-15T19:00Z",
+      "kickoffAt": "2026-07-15T19:00Z"
     },
     "FINAL": {
       "status": "scheduled",
       "round": "FINAL",
       "teamA": "Spain",
-      "teamB": null,
-      "winner": null
+      "teamB": "Argentina",
+      "winner": null,
+      "homeTeam": "Spain",
+      "awayTeam": "Argentina",
+      "homeScore": "0",
+      "awayScore": "0",
+      "homeScoreExtra": null,
+      "awayScoreExtra": null,
+      "decidedBy": "NS",
+      "sportsDbEventId": "760517",
+      "source": "ESPN",
+      "completedAt": "2026-07-19T19:00Z",
+      "kickoffAt": "2026-07-19T19:00Z"
     }
   },
   "unmatchedEvents": [
@@ -566,22 +577,6 @@ window.WC2026_RESULTS = {
       "away": "Argentina",
       "resolvedHome": null,
       "resolvedAway": "Argentina"
-    },
-    {
-      "eventId": "760516",
-      "source": "ESPN",
-      "home": "France",
-      "away": "Semifinal 2 Loser",
-      "resolvedHome": "France",
-      "resolvedAway": null
-    },
-    {
-      "eventId": "760517",
-      "source": "ESPN",
-      "home": "Spain",
-      "away": "Semifinal 2 Winner",
-      "resolvedHome": "Spain",
-      "resolvedAway": null
     }
   ],
   "warnings": []
